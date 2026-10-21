@@ -1,7 +1,17 @@
 # Showroom dialogue MVP — Java
 
-A reusable Java dialogue core and an early CLI for the design discussed in
-[`MVP_DESIGN.md`](MVP_DESIGN.md).
+A reusable Java dialogue core and an early CLI prototype.
+
+## Design status
+
+[`MVP_DESIGN.md`](MVP_DESIGN.md) defines the **target v0 contract**;
+[`DIALOGUE_EXAMPLES.md`](DIALOGUE_EXAMPLES.md) supplies its conversation examples.
+
+The runnable commands and implementation notes below describe the earlier Java
+prototype: `operation=browse|explain|demonstrate`, user `select(ordinal=...)`,
+request relations, and retained choices. Migration follows the rule-module design
+discussion. The new semantic notation is not yet accepted `/inject` JSON, and
+pause/resume are target API additions.
 
 ## Build and run
 
