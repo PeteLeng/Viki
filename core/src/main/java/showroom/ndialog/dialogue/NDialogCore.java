@@ -46,28 +46,25 @@ public final class NDialogCore {
 
             // Bind: the open question translates an answer; the stack walks nearest first;
             // a goal act nobody consumes spawns a new agent into the pending list.
-            Act bindable = act;
             OpenQuestion question = state.openQuestion;
             if (question != null) {
                 Act translated = question.translate(act);
                 if (translated != null) {
                     state.openQuestion = null;
-                    bindable = translated;
+                    act = translated;
                 }
             }
             List<Agent> pending = new ArrayList<Agent>();
-            if (bindable != null) {
-                boolean consumed = false;
-                for (int i = state.stack.size() - 1; i >= 0; i--) {
-                    Agent agent = state.stack.get(i);
-                    Agent.Bind result = agent.bind(bindable, state);
-                    if (result == Agent.Bind.NOT_MINE) continue;
-                    if (result == Agent.Bind.BOUND) agent.onBind(bindable, state);
-                    consumed = true;
-                    break;
-                }
-                if (!consumed) spawn(state, bindable, pending);
+            boolean consumed = false;
+            for (int i = state.stack.size() - 1; i >= 0; i--) {
+                Agent agent = state.stack.get(i);
+                Agent.Bind result = agent.bind(act, state);
+                if (result == Agent.Bind.NOT_MINE) continue;
+                if (result == Agent.Bind.BOUND) agent.onBind(act, state);
+                consumed = true;
+                break;
             }
+            if (!consumed) spawn(state, act, pending);
 
             // The top executes; finished agents leave; pending agents enter and take the focus.
             Agent focus = state.focus();
