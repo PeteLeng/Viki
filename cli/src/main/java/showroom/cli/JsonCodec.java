@@ -13,8 +13,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import showroom.ndialog.Feature;
-import showroom.ndialog.Segment;
+import showroom.ndialog.bridge.Feature;
+import showroom.ndialog.nlu.Segment;
 
 final class JsonCodec {
     static final Gson GSON = new GsonBuilder().serializeNulls().create();

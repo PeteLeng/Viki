@@ -1,7 +1,7 @@
 package showroom.cli;
 
 import java.util.List;
-import showroom.ndialog.Feature;
+import showroom.ndialog.bridge.Feature;
 
 /** The shared static interpretation prompt; adapters send only this plus the current text. */
 final class NluPrompt {

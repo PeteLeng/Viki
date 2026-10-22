@@ -1,4 +1,6 @@
-package showroom.ndialog;
+package showroom.ndialog.dialogue;
+
+import showroom.ndialog.bridge.Feature;
 
 import java.util.List;
 

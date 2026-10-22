@@ -1,4 +1,8 @@
-package showroom.ndialog;
+package showroom.ndialog.dialogue;
+
+import showroom.ndialog.bridge.AppPort;
+import showroom.ndialog.bridge.Feature;
+import showroom.ndialog.nlu.Segment;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;

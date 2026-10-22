@@ -9,8 +9,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
-import showroom.ndialog.Feature;
-import showroom.ndialog.Segment;
+import showroom.ndialog.bridge.Feature;
+import showroom.ndialog.nlu.Segment;
 
 /** Stateless opencode-backed interpreter: one "opencode run" subprocess per utterance. */
 public final class OpenCodeNlu implements Nlu {

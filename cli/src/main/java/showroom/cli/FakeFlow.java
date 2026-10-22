@@ -4,8 +4,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
 import java.util.List;
-import showroom.ndialog.AppPort;
-import showroom.ndialog.Feature;
+import showroom.ndialog.bridge.AppPort;
+import showroom.ndialog.bridge.Feature;
 
 /** Small synchronous stand-in, not a simulation of the Android flow engine. */
 public final class FakeFlow implements AppPort {

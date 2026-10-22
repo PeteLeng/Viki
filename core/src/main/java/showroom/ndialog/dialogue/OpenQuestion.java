@@ -1,4 +1,7 @@
-package showroom.ndialog;
+package showroom.ndialog.dialogue;
+
+import showroom.ndialog.bridge.Feature;
+import showroom.ndialog.nlu.Segment;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;

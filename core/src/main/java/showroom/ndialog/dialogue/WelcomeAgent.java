@@ -1,4 +1,6 @@
-package showroom.ndialog;
+package showroom.ndialog.dialogue;
+
+import showroom.ndialog.nlu.Segment;
 
 /** Greets, collects the session name, offers the flow goal, then stays below flow for name corrections. */
 final class WelcomeAgent extends Agent {

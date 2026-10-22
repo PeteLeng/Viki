@@ -5,13 +5,13 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Reader;
 import java.util.List;
-import showroom.ndialog.AppPort;
-import showroom.ndialog.DialogueAct;
-import showroom.ndialog.DialogState;
-import showroom.ndialog.Feature;
-import showroom.ndialog.NDialogCore;
-import showroom.ndialog.Result;
-import showroom.ndialog.Segment;
+import showroom.ndialog.bridge.AppPort;
+import showroom.ndialog.dialogue.DialogueAct;
+import showroom.ndialog.dialogue.DialogState;
+import showroom.ndialog.bridge.Feature;
+import showroom.ndialog.dialogue.NDialogCore;
+import showroom.ndialog.dialogue.Result;
+import showroom.ndialog.nlu.Segment;
 
 public final class Cli {
     private final Nlu nlu;

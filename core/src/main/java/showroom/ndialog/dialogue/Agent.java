@@ -1,4 +1,6 @@
-package showroom.ndialog;
+package showroom.ndialog.dialogue;
+
+import showroom.ndialog.nlu.Segment;
 
 import java.util.UUID;
 

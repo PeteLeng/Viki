@@ -1,4 +1,4 @@
-package showroom.ndialog;
+package showroom.ndialog.dialogue;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

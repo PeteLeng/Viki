@@ -1,4 +1,4 @@
-package showroom.ndialog;
+package showroom.ndialog.bridge;
 
 import java.util.List;
 

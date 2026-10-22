@@ -1,4 +1,4 @@
-package showroom.ndialog;
+package showroom.ndialog.bridge;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,7 +31,7 @@ public final class Feature {
                 && (theme == null || theme.equals("any") || themes.contains(theme));
     }
 
-    static <T> List<T> immutable(List<T> values) {
+    public static <T> List<T> immutable(List<T> values) {
         return Collections.unmodifiableList(new ArrayList<T>(values));
     }
 }
