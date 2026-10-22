@@ -1,7 +1,0 @@
-subprojects {
-    repositories { mavenCentral() }
-    tasks.withType(JavaCompile).configureEach {
-        options.release = 8
-        options.encoding = 'UTF-8'
-    }
-}

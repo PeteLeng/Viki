@@ -1,8 +1,0 @@
-/inject {"acts":[{"type":"greet"}]}
-/inject {"acts":[{"type":"inform","slots":{"name":"Sam"}}]}
-/inject {"acts":[{"type":"affirm"}]}
-/inject {"acts":[{"type":"inform","slots":{"theme":"family"}}]}
-/inject {"acts":[{"type":"inform","slots":{"part":"back-seat"}}]}
-/inject {"acts":[{"type":"inform","slots":{"choice":"2"}}]}
-/state
-/quit
