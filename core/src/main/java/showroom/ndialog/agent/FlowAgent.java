@@ -94,7 +94,11 @@ public final class FlowAgent extends Agent {
     }
 
     @Override public void onFocus(DialogState state) {
-        if (flowId != null || status != Status.IDLE) return;
+        if (status != Status.IDLE) return;
+        if (flowId != null) {
+            execute(state);
+            return;
+        }
         List<String> matches = new ArrayList<String>();
         for (Feature flow : catalog) {
             if (flow.matches(part, theme)) matches.add(flow.id);

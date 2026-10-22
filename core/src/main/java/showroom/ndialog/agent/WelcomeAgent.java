@@ -24,14 +24,17 @@ public final class WelcomeAgent extends Agent {
         return Bind.NOT_MINE;
     }
 
+    @Override public void onBind(Act act, DialogState state) {
+        if (!declined) return;
+        state.say(Act.inform("description", "Okay. Ask me to play a flow whenever you like."));
+        complete();
+    }
+
     @Override public void execute(DialogState state) { }
 
     @Override public void onFocus(DialogState state) {
         if (state.name() == null) state.ask(OpenQuestion.requestValue(this, "name"));
-        else if (declined) {
-            state.say(Act.inform("description", "Okay. Ask me to play a flow whenever you like."));
-            complete();
-        } else state.ask(OpenQuestion.confirmGoal(this, "flow"));
+        else state.ask(OpenQuestion.confirmGoal(this, "flow"));
     }
 
     @Override public Agent copy() {

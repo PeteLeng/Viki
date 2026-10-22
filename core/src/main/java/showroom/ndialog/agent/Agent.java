@@ -24,6 +24,9 @@ public abstract class Agent {
      */
     public abstract Bind bind(Act act, DialogState state);
 
+    /** Called after this agent's successful bind (or spawn); react without stack side effects beyond own status. */
+    public void onBind(Act act, DialogState state) { }
+
     /** Perform the application side effect when ready; request starts through the state. */
     public abstract void execute(DialogState state);
 

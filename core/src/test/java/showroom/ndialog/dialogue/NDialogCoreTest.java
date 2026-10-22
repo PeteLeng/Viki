@@ -52,7 +52,7 @@ public class NDialogCoreTest {
     }
 
     private DialogState turn(Act act) {
-        state = core.handleUserTurn(state, Collections.singletonList(act));
+        state = core.handleInput(state, Collections.singletonList(act));
         return state;
     }
 
@@ -172,15 +172,14 @@ public class NDialogCoreTest {
         assertEquals("rear_displays", chosen.starts().get(0).flowId);
     }
 
-    @Test public void bareAffirmAfterSelectionRepeatsTheOffer() {
+    @Test public void bareAffirmUnderSelectionIsUnresolved() {
         turn(Act.greet());
         turn(Act.inform("name", "Sam"));
         turn(Act.affirm());
 
-        DialogState repeated = turn(Act.affirm());
-        assertEquals(1, repeated.acts().size());
-        assertEquals(Act.Type.SELECT, repeated.acts().get(0).type);
-        assertEquals(4, repeated.acts().get(0).values("flow_id").size());
+        DialogState answered = turn(Act.affirm());
+        assertEquals(1, answered.acts().size());
+        assertEquals("unresolved_input", lastInform(answered).slot("error"));
         assertEquals(Act.Type.SELECT, state.openQuestion.expected.type);
     }
 

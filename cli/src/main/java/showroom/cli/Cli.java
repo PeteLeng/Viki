@@ -41,7 +41,7 @@ public final class Cli {
                 if (line.startsWith("/inject ")) acts = JsonCodec.acts(line.substring(8));
                 else if (line.startsWith("/")) throw new IOException("Unknown CLI command.");
                 else acts = nlu.interpret(line);
-                accept(core.handleUserTurn(state, acts));
+                accept(core.handleInput(state, acts));
             } catch (IOException | IllegalArgumentException e) {
                 out.println("Input error: " + e.getMessage());
             }

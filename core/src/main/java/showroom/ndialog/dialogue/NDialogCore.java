@@ -6,6 +6,7 @@ import showroom.ndialog.agent.WelcomeAgent;
 import showroom.ndialog.bridge.AppPort;
 import showroom.ndialog.bridge.Feature;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -14,10 +15,11 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * The dialogue engine. Per act: the open question translates an answer into a
- * directly bindable act, the stack binds nearest-first, else a goal agent spawns;
- * then the focus executes, finished agents leave the stack, and the focus takes
- * initiative. Flow notifications bypass this pipeline.
+ * The dialogue engine. Per act: bind first — the open question translates answers,
+ * the stack binds nearest-first, and a goal act nobody binds spawns a new agent into
+ * a pending list (onBind follows). Then the top executes, finished agents leave,
+ * the pending agents enter, the focus settles, and it takes initiative. Flow
+ * notifications bypass this pipeline.
  */
 public final class NDialogCore {
     private static final Set<String> GLOBAL_TASKS = new HashSet<String>(
@@ -33,8 +35,8 @@ public final class NDialogCore {
         this.catalog = Feature.immutable(catalog);
     }
 
-    /** Acts are nonempty and validated upstream. Returns the next state; its acts and starts are this turn's output. */
-    public DialogState handleUserTurn(DialogState before, List<Act> acts) {
+    /** Acts are nonempty and validated upstream. Returns the next state; its acts and starts are this call's output. */
+    public DialogState handleInput(DialogState before, List<Act> acts) {
         DialogState state = before.copy();
         for (Act act : acts) {
             if (act.type == Act.Type.REQUEST && GLOBAL_TASKS.contains(act.slot("task"))) {
@@ -42,30 +44,29 @@ public final class NDialogCore {
                 continue;
             }
 
-            // The open question is bookkeeping: translate an answer into a bindable act.
+            // Bind: the open question translates an answer; the stack walks nearest first;
+            // a goal act nobody binds spawns a new agent into the pending list.
             Act bindable = act;
             OpenQuestion question = state.openQuestion;
             if (question != null) {
-                OpenQuestion.Outcome outcome = question.translate(act);
-                if (outcome.kind != OpenQuestion.Outcome.Kind.MISS) {
-                    if (outcome.kind == OpenQuestion.Outcome.Kind.REPEATED) {
-                        state.say(question.expected);
-                        continue;
-                    }
-                    if (outcome.kind == OpenQuestion.Outcome.Kind.ERROR) {
-                        state.error(outcome.code, outcome.description);
-                        continue;
-                    }
+                Act translated = question.translate(act);
+                if (translated != null) {
                     state.openQuestion = null;
-                    bindable = outcome.translated;
+                    bindable = translated;
                 }
             }
-
-            // Bind nearest agent first; spawning a goal agent is the fallback.
+            List<Agent> pending = new ArrayList<Agent>();
             if (bindable != null) {
                 boolean bound = false;
                 for (int i = state.stack.size() - 1; i >= 0; i--) {
-                    if (state.stack.get(i).bind(bindable, state) != Agent.Bind.NOT_MINE) {
+                    Agent agent = state.stack.get(i);
+                    Agent.Bind result = agent.bind(bindable, state);
+                    if (result == Agent.Bind.BOUND) {
+                        agent.onBind(bindable, state);
+                        bound = true;
+                        break;
+                    }
+                    if (result == Agent.Bind.REJECTED) {
                         bound = true;
                         break;
                     }
@@ -73,24 +74,32 @@ public final class NDialogCore {
                 if (!bound) {
                     if (bindable.type == Act.Type.GREET) {
                         state.say(Act.greet());
-                        if (state.stack.isEmpty()) state.stack.add(new WelcomeAgent());
+                        if (state.stack.isEmpty()) {
+                            WelcomeAgent candidate = new WelcomeAgent();
+                            pending.add(candidate);
+                            candidate.onBind(bindable, state);
+                        }
                     } else if (bindable.type == Act.Type.REQUEST && "flow".equals(bindable.slot("task"))) {
                         FlowAgent candidate = new FlowAgent(catalog);
-                        if (candidate.bind(bindable, state) == Agent.Bind.BOUND) state.stack.add(candidate);
+                        if (candidate.bind(bindable, state) == Agent.Bind.BOUND) {
+                            pending.add(candidate);
+                            candidate.onBind(bindable, state);
+                        }
                     } else {
                         state.error("unresolved_input", "No agent wants that. Greet or request a flow first.");
                     }
                 }
             }
 
-            // The question belongs to the focus; then execute, take initiative, clean up.
-            question = state.openQuestion;
+            // The top executes; finished agents leave; pending agents enter; the focus takes initiative.
             Agent focus = state.focused();
-            if (question != null && (focus == null || !question.ownedBy(focus))) state.openQuestion = null;
             if (focus != null && !focus.finished()) focus.execute(state);
-            focus = state.focused();
-            if (focus != null && !focus.finished() && state.openQuestion == null) focus.onFocus(state);
             cleanup(state);
+            for (Agent agent : pending) state.stack.add(agent);
+            question = state.openQuestion;
+            focus = state.focused();
+            if (question != null && (focus == null || !question.ownedBy(focus))) state.openQuestion = null;
+            if (focus != null && !focus.finished() && state.openQuestion == null) focus.onFocus(state);
         }
         return state;
     }
