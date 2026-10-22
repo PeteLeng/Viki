@@ -1,0 +1,34 @@
+[
+  {
+    "id": "rear_displays",
+    "name": "Rear displays",
+    "aliases": ["back-seat screens", "rear-seat entertainment"],
+    "parts": ["back-seat"],
+    "themes": ["entertainment", "family"],
+    "description": "Rear passengers can enjoy separate entertainment on the rear displays."
+  },
+  {
+    "id": "rear_audio",
+    "name": "Rear audio",
+    "aliases": ["back-seat audio"],
+    "parts": ["back-seat"],
+    "themes": ["entertainment", "family"],
+    "description": "Rear passengers can listen through the rear-seat audio system."
+  },
+  {
+    "id": "front_comfort",
+    "name": "Front-seat comfort",
+    "aliases": ["front seats"],
+    "parts": ["front-seat"],
+    "themes": ["comfort", "family"],
+    "description": "The front seats offer adjustable comfort settings."
+  },
+  {
+    "id": "headlights",
+    "name": "Headlights",
+    "aliases": ["front lights"],
+    "parts": ["headlights"],
+    "themes": ["visibility"],
+    "description": "The headlight demonstration showcases the available lighting patterns."
+  }
+]
