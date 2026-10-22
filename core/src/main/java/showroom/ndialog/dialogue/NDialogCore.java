@@ -153,14 +153,14 @@ public final class NDialogCore {
         focus.onFocus(turn);
     }
 
-    /** Application notifications update a running agent's progress; they never rerun input policy. */
+    /** Application notifications update a running agent's status; they never rerun input policy. */
     public Result onFlowEvent(DialogState before, String agentId, AppPort.Event event) {
         DialogState working = before.copy();
         Turn turn = new Turn(working);
         Agent owner = working.find(agentId);
         if (owner != null && owner.running()) {
-            if (event.kind.equals("completed")) owner.progress = Agent.Progress.DONE;
-            else if (event.kind.equals("failed")) owner.progress = Agent.Progress.FAILED;
+            if (event.kind.equals("completed")) owner.status = Agent.Status.DONE;
+            else if (event.kind.equals("failed")) owner.status = Agent.Status.FAILED;
             Map<String, String> slots = new LinkedHashMap<String, String>();
             if (event.kind.equals("running") || event.kind.equals("completed") || event.kind.equals("failed")) {
                 slots.put("flow_id", flowIdOf(owner));

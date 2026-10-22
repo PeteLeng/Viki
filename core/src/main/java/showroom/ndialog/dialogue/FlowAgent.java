@@ -81,13 +81,13 @@ final class FlowAgent extends Agent {
     }
 
     @Override void execute(Turn turn) {
-        if (flowId == null || progress != Progress.IDLE) return;
-        progress = Progress.RUNNING;
+        if (flowId == null || status != Status.IDLE) return;
+        status = Status.RUNNING;
         turn.start(this, flowId);
     }
 
     @Override void onFocus(Turn turn) {
-        if (flowId != null || progress != Progress.IDLE) return;
+        if (flowId != null || status != Status.IDLE) return;
         List<String> matches = new ArrayList<String>();
         for (Feature flow : catalog) {
             if (flow.matches(part, theme)) matches.add(flow.id);
@@ -108,7 +108,7 @@ final class FlowAgent extends Agent {
 
     @Override Agent copy() {
         FlowAgent copy = new FlowAgent(id, catalog, flowId, part, theme);
-        copy.progress = progress;
+        copy.status = status;
         return copy;
     }
 

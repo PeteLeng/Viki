@@ -87,7 +87,7 @@ public class NDialogCoreTest {
         Result chosen = turn(new Segment("choice", Collections.singletonMap("n", "2")));
         assertEquals(1, chosen.starts.size());
         assertEquals("rear_audio", chosen.starts.get(0).flowId);
-        assertEquals(Agent.Progress.RUNNING, state.focused().progress());
+        assertEquals(Agent.Status.RUNNING, state.focused().status());
 
         Result done = complete(chosen);
         assertEquals(1, state.tasks().size());
@@ -102,7 +102,7 @@ public class NDialogCoreTest {
         assertEquals(1, result.starts.size());
         assertEquals("headlights", result.starts.get(0).flowId);
         assertTrue(result.acts.isEmpty());
-        assertEquals(Agent.Progress.RUNNING, state.focused().progress());
+        assertEquals(Agent.Status.RUNNING, state.focused().status());
 
         complete(result);
         assertTrue(state.tasks().isEmpty());

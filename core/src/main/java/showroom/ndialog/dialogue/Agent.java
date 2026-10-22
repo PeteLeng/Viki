@@ -6,13 +6,13 @@ import java.util.UUID;
 
 /** One conversational goal on the agent stack. Subclasses own their fields, binding, and questions. */
 public abstract class Agent {
-    public enum Progress { IDLE, RUNNING, DONE, FAILED }
+    public enum Status { IDLE, RUNNING, DONE, FAILED }
 
     /** Outcome of offering a segment to an agent. */
     enum Bind { NOT_MINE, BOUND, REJECTED }
 
     final String id;
-    Progress progress = Progress.IDLE;
+    Status status = Status.IDLE;
 
     protected Agent(String id) { this.id = id; }
 
@@ -37,11 +37,11 @@ public abstract class Agent {
     abstract Agent copy();
 
     public final String id() { return id; }
-    public final Progress progress() { return progress; }
+    public final Status status() { return status; }
     public String kind() { return getClass().getSimpleName(); }
 
-    final boolean finished() { return progress == Progress.DONE || progress == Progress.FAILED; }
-    final boolean running() { return progress == Progress.RUNNING; }
+    final boolean finished() { return status == Status.DONE || status == Status.FAILED; }
+    final boolean running() { return status == Status.RUNNING; }
 
     static String newId() { return UUID.randomUUID().toString(); }
 }

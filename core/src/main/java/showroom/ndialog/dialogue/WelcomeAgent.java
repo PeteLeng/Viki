@@ -25,7 +25,7 @@ final class WelcomeAgent extends Agent {
 
     @Override void rejected(Turn turn, OpenQuestion question) {
         if (question.kind != OpenQuestion.Kind.CONFIRM_GOAL) return;
-        progress = Progress.DONE;
+        status = Status.DONE;
         turn.say(DialogueAct.inform("description", "Okay. Ask me to play a flow whenever you like."));
     }
 
