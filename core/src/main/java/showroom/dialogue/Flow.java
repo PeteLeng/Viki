@@ -5,7 +5,7 @@ import java.util.List;
 /** Integration boundary; the app remains authoritative about execution. */
 public interface Flow {
     List<Feature> list();
-    void start(String featureId, Listener listener);
+    void start(String flowId, Listener listener);
     void stop();
 
     interface Listener { void onEvent(Event event); }

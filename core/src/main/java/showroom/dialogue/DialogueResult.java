@@ -4,34 +4,34 @@ import java.util.List;
 
 public final class DialogueResult {
     public final DialogueState state;
-    public final List<SystemAction> actions;
+    public final List<DialogueAct> acts;
+    public final List<FlowCommand> commands;
     public final Trace trace;
 
-    DialogueResult(DialogueState state, List<SystemAction> actions, Trace trace) {
+    DialogueResult(DialogueState state, List<DialogueAct> acts, List<FlowCommand> commands, Trace trace) {
         this.state = state;
-        this.actions = Feature.immutable(actions);
+        this.acts = Feature.immutable(acts);
+        this.commands = Feature.immutable(commands);
         this.trace = trace;
     }
 
     public static final class Trace {
         public final Object input;
-        public final List<String> binding;
+        public final List<String> steps;
         public final DialogueState before;
         public final DialogueState after;
-        public final String rule;
-        public final String reason;
-        public final List<SystemAction> actions;
+        public final List<DialogueAct> acts;
+        public final List<FlowCommand> commands;
         public final long elapsedNanos;
 
-        Trace(Object input, List<String> binding, DialogueState before, DialogueState after,
-              String rule, String reason, List<SystemAction> actions, long elapsedNanos) {
+        Trace(Object input, List<String> steps, DialogueState before, DialogueState after,
+              List<DialogueAct> acts, List<FlowCommand> commands, long elapsedNanos) {
             this.input = input;
-            this.binding = Feature.immutable(binding);
+            this.steps = Feature.immutable(steps);
             this.before = before;
             this.after = after;
-            this.rule = rule;
-            this.reason = reason;
-            this.actions = Feature.immutable(actions);
+            this.acts = Feature.immutable(acts);
+            this.commands = Feature.immutable(commands);
             this.elapsedNanos = elapsedNanos;
         }
     }

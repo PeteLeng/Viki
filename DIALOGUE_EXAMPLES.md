@@ -1,6 +1,6 @@
 # Dialogue v0: conversation reference
 
-These cases illustrate [MVP_DESIGN.md](MVP_DESIGN.md). They are intended interpretations, not measured NLU outputs or runnable `/inject` JSON. Each case is independent unless stated otherwise. Phase walkthroughs use the draft [rules-rewrite v1](RULES_REWRITE.md) processing shape.
+These cases illustrate [MVP_DESIGN.md](MVP_DESIGN.md). They are intended interpretations, not measured NLU outputs or runnable `/inject` JSON. Each case is independent unless stated otherwise. The first-slice walkthroughs below are implemented; C01–C36 remain the wider target reference, including composite input, other goals, and controls outside the slice. Their phase labels describe responsibilities, not mandatory pipeline stages; see the [lean handler design](RULES_REWRITE.md).
 
 **U/S** give an utterance and its DialogueActs. **Core/App** describe commands and application evidence. Bracketed acts belong to one turn, not competing interpretations. `T1`/`T2` are internal Task IDs; NLU never invents them. Wording and optional policy replies are illustrative; state, meaning, and offered order are the checks.
 
@@ -21,6 +21,47 @@ Catalog fixture from `cli/src/main/resources/catalog.json`:
 | [C22](#c22)–[C26](#c26) | Controls and singleton Play |
 | [C27](#c27)–[C30](#c30) | Reference limits and unsuccessful queries |
 | [C31](#c31)–[C36](#c36) | Facts, notifications, NLU, and scope boundaries |
+
+## Implemented first-slice walkthroughs
+
+### Greeting, name, then Play offer
+
+- **U:** “Hi.” → `greet()`
+- **Core:** admits Welcome.
+- **S:** “What is your name?” → `request(slot=name)`
+- **U:** “Sam.” → `inform(name=Sam)`
+- **Core:** stores the session name, clears the name question.
+- **S:** “Would you like to see a demo?” → `confirm(task=play)`
+- **U:** “Yes.” → `affirm()`
+- **Core:** admits Play through the shared admission helper and completes Welcome.
+- **S:** “Which flow?” → `select(flow_id=[rear_displays, rear_audio, front_comfort, headlights])`
+
+There is one question at a time. The proposal does not create Play until accepted.
+The final yes is consumed once; it cannot also select a flow. Declining the offer
+completes Welcome while keeping the session name.
+
+### Direct Play
+
+- **U:** “Play a feature.” → `request(task=play)`
+- **Core:** uses the same admission helper, skipping the optional Welcome sequence.
+- **S:** `select(flow_id=[rear_displays, rear_audio, front_comfort, headlights])`
+
+A known `flow_id` in the request can proceed directly to a start command. Asking
+again reuses the singleton rather than pushing another Play.
+
+### Named discovery information, one value at a time
+
+Given the preceding Play selection:
+
+- **U:** “Family.” → `inform(theme=family)`
+- **S:** `select(flow_id=[rear_displays, rear_audio, front_comfort])`
+- **U:** “The back seats.” → `inform(part=back-seat)`
+- **S:** `select(flow_id=[rear_displays, rear_audio])`
+- **U:** “The second one.” → `inform(choice=ordinal(2))`
+- **Core:** accepts `flow_id=rear_audio`, clears the interaction, records/returns the start command.
+
+Theme/part narrow an existing goal; they do not create Play by themselves. The
+answered list cannot resolve another ordinal. Runnable JSON is in [README.md](README.md).
 
 ## C01
 
@@ -91,10 +132,12 @@ No compulsory selection question. No duplicate start on unrelated inputs. Succes
 T1: kind=play
     parameters={flow_id: unset, part: unset, theme: unset}
     progress={execution_status: not_started}
-    expectation=select(flow_id=[rear_displays, rear_audio, front_comfort, headlights])
+pendingInteraction:
+    ownerTaskId=T1
+    question=select(flow_id=[rear_displays, rear_audio, front_comfort, headlights])
 ```
 
-The question belongs to T1; it is not another Task. Progress fields here are illustrative.
+The question belongs to T1 but is stored in shared dialogue state; it is not another Task. Progress fields here are illustrative.
 
 ## C08
 
@@ -131,7 +174,7 @@ The first answer sets `theme=entertainment`; the later question asks for `flow_i
 | `record_issued_outputs` | Stores the selected question as T1's expectation |
 | Lifecycle/host | No Task added/completed; host accepts state, then renders output |
 
-Result: `flow_id=unset`, `part=back-seat`, `theme=family`, execution not started. The expectation itself contains the two choices; no additional list memory exists.
+Result: `flow_id=unset`, `part=back-seat`, `theme=family`, execution not started. The pending interaction itself contains the two choices; no additional list memory exists. The first slice exercises these named values in separate turns; this combined input remains a target case.
 
 ## C11
 

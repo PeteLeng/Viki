@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import showroom.dialogue.Act;
+import showroom.dialogue.DialogueAct;
 import showroom.dialogue.Feature;
 
 final class JsonCodec {
@@ -24,13 +24,13 @@ final class JsonCodec {
                     (JsonSerializer<Feature>) (feature, type, context) -> new JsonPrimitive(feature.id))
             .create();
 
-    static List<Act> acts(String json) throws IOException {
+    static List<DialogueAct> acts(String json) throws IOException {
         try {
             JsonObject root = JsonParser.parseString(json).getAsJsonObject();
             if (root.size() != 1 || !root.has("acts")) throw new IllegalArgumentException("Expected an acts object.");
             JsonArray array = root.getAsJsonArray("acts");
             if (array.size() == 0) throw new IllegalArgumentException("At least one act is required.");
-            List<Act> acts = new ArrayList<>();
+            List<DialogueAct> acts = new ArrayList<>();
             for (JsonElement item : array) {
                 JsonObject object = item.getAsJsonObject();
                 for (String key : object.keySet()) {
@@ -47,7 +47,7 @@ final class JsonCodec {
                         slots.put(entry.getKey(), value.getAsString());
                     }
                 }
-                acts.add(Act.of(type, slots));
+                acts.add(DialogueAct.of(type, slots));
             }
             return acts;
         } catch (RuntimeException e) {

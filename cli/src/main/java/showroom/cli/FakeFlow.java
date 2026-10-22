@@ -19,16 +19,16 @@ public final class FakeFlow implements Flow {
 
     @Override public List<Feature> list() { return java.util.Collections.unmodifiableList(features); }
 
-    @Override public void start(String featureId, Listener listener) {
+    @Override public void start(String flowId, Listener listener) {
         for (Feature feature : features) {
-            if (feature.id.equals(featureId)) {
+            if (feature.id.equals(flowId)) {
                 listener.onEvent(new Event("narration", "[fake flow] " + feature.description));
                 listener.onEvent(new Event("progress", "[fake flow] 100%"));
                 listener.onEvent(new Event("completed", "[fake flow] Completed " + feature.name));
                 return;
             }
         }
-        listener.onEvent(new Event("failed", "[fake flow] Unknown feature: " + featureId));
+        listener.onEvent(new Event("failed", "[fake flow] Unknown flow: " + flowId));
     }
 
     @Override public void stop() {

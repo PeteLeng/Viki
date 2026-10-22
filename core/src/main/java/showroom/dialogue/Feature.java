@@ -28,7 +28,8 @@ public final class Feature {
     }
 
     public boolean matches(String part, String theme) {
-        return (part == null || parts.contains(part)) && (theme == null || themes.contains(theme));
+        return (part == null || part.equals("any") || parts.contains(part))
+                && (theme == null || theme.equals("any") || themes.contains(theme));
     }
 
     public boolean named(String reference) {

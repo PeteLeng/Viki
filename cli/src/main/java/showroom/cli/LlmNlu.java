@@ -11,7 +11,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import showroom.dialogue.Act;
+import showroom.dialogue.DialogueAct;
 import showroom.dialogue.Feature;
 
 /** Optional OpenAI-compatible chat-completions adapter; no SDK or conversation memory. */
@@ -26,25 +26,27 @@ public final class LlmNlu implements Nlu {
         this.model = model;
         this.apiKey = apiKey;
         this.prompt = "Parse only the supplied ASR text. Return JSON, with no markdown: "
-                + "{\"acts\":[{\"type\":\"request\",\"slots\":{\"operation\":\"demonstrate\"}}]}. "
-                + "Acts: request, inform, select, affirm, deny. Slots are string values. "
-                + "Request operations: browse, explain, demonstrate. "
-                + "Slots: feature_id (a known ID), feature (an unresolved name), part, theme, ordinal. "
-                + "A request may also have relation=aside for explicit 'before that/then return' wording, "
-                + "or relation=replace for explicit 'forget that/instead' wording. Otherwise omit relation. "
-                + "Put arguments of a requested goal in that request's slots. Separate inform/select/affirm/deny acts "
-                + "answer existing conversational context; never merge those answers into a different requested goal. "
-                + "Use select with ordinal for 'the second one' (ordinal \"2\"); do not resolve it. "
-                + "For 'start the second one', put operation=demonstrate and ordinal=2 in the request. "
+                + "{\"acts\":[{\"type\":\"request\",\"slots\":{\"task\":\"play\"}}]}. "
+                + "User acts: greet, request, inform, confirm, affirm, deny. Slots are string values. "
+                + "Use greet with empty slots for a greeting; inform(name=Sam) for 'my name is Sam'. "
+                + "Task names: play, list, help, pause, resume, stop, cancel. The current core implements Welcome/Play only; "
+                + "preserve other requests so it can report them as unsupported, rather than relabeling them as play. "
+                + "Use flow_id for a known catalog ID, and part/theme for discovery values. "
+                + "Unknown names must not become invented flow IDs; preserve an unknown mention as an unsupported slot. "
+                + "Put arguments of a requested goal in that request's slots. "
+                + "Use inform with choice=\"2\" for 'the second one'; this is an unresolved one-based ordinal. "
+                + "For 'play the second one', use request(task=play, choice=2). "
+                + "select is system-only, never a user act. No operation, feature_id, ordinal, or relation slots. "
                 + "Use affirm/deny with empty slots for yes/no. "
                 + "'No, the front seats' is deny plus inform(part=front-seat). "
-                + "Keep multiple acts and all supplied values associated; do not discard conflicting values. "
-                + "Use separate inform acts if several values for the same filter are expressed. "
+                + "The first core slice accepts one act and one value per inform. Still preserve composite input as multiple acts "
+                + "or named values, for explicit unsupported-input handling; do not discard meaning to fit the slice. "
+                + "Use separate inform acts for conflicting values of the same slot. "
                 + "Never invent Task IDs, Task state, choices, confidence, or stack operations. "
                 + "You have no conversation history. Static catalog vocabulary: " + JsonCodec.GSON.toJson(catalog);
     }
 
-    @Override public List<Act> interpret(String text) throws IOException {
+    @Override public List<DialogueAct> interpret(String text) throws IOException {
         JsonObject body = new JsonObject();
         body.addProperty("model", model);
         JsonArray messages = new JsonArray();

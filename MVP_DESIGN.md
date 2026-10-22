@@ -1,6 +1,6 @@
 # Showroom dialogue MVP: v0 contract
 
-Build a small CLI-first dialogue manager with handwritten rules and text-only NLU. This is the **target contract**; the Java prototype still uses the earlier design. See [README.md](README.md) for its runnable commands and [DIALOGUE_EXAMPLES.md](DIALOGUE_EXAMPLES.md) for the target conversations.
+Build a small CLI-first dialogue manager with handwritten rules and text-only NLU. This is the **wider target contract**. The implemented [lean first slice](RULES_REWRITE.md) uses Welcome/Play, one user act, one value per `inform`, and one pending question at a time. It follows the contract simplification (`5452e65`) and task-local rewrite direction (`f3788b9`), with the subsequent discussion's direct-handler loop and shared pending interaction. See [README.md](README.md) for runnable commands and [DIALOGUE_EXAMPLES.md](DIALOGUE_EXAMPLES.md) for conversations.
 
 ## 1. Dialogue-act contract
 
@@ -25,6 +25,11 @@ The shared act representation is inspired by [Jurafsky and Martin, Appendix K, �
 | `affirm(...)` | Accept the relevant proposition, optionally supplying more information | Both |
 | `deny(...)` | Reject the relevant proposition or named values | Both |
 | `select(S=[V1, V2, ...])` | Ask for one value from ordered alternatives | System only |
+
+The first slice adds `greet()` and `inform(name=...)` for Welcome. Its system
+`confirm(task=play, ...)` is shorthand for a goal-adoption proposition: acceptance
+admits Play through the same helper as a direct request. It does not create a
+`wants_to_play` parameter or require a Play task before the offer is accepted.
 
 Reflection queries about remembered Task state are outside v0. Sharing the act representation does not require supporting every form in both directions.
 
@@ -92,7 +97,7 @@ Defaults describe fresh requests; inheritance/replacement of values in an existi
 
 Result fields include ordered `flows`/`themes`/`parts`, `description`, and application-supported `execution_status`. Policy may emit an `error` diagnosis. Complete integration enums and diagnostic codes are not fixed by the examples.
 
-Canonical goal names are `list`, `play`, and `help`; ordinary utterances may still say “demo,” “start,” or “feature.” Use `flow_id` for the executable catalog ID. Any distinct production feature-to-flow mapping needs explicit agreement.
+Canonical user-requested goal names are `list`, `play`, and `help`; ordinary utterances may still say “demo,” “start,” or “feature.” Welcome is an internal goal activated by a greeting in the first slice. Use `flow_id` for the executable catalog ID. Any distinct production feature-to-flow mapping needs explicit agreement.
 
 ### Singleton Play and controls
 
@@ -115,18 +120,23 @@ For pause/resume/stop, Play policy inspects the singleton Task and execution fac
 ```text
 DialogueState:
   stack: [Task, ...]       # top has conversational focus
+  userName?               # first session-scoped value
+  pendingInteraction?     # one active question in the first slice
 
 Task:
   id                      # assigned by the core
-  kind                    # list | play | help for goal records
+  kind                    # implemented: welcome | play; later: list | help
   parameters
   progress
-  expectation?            # outstanding system question
+
+PendingInteraction:
+  ownerTaskId
+  question                # issued request, select, or confirm act
 ```
 
-An expectation can reuse the issued `request(slot=...)`, `select(...)`, or `confirm(...)` data. Its owning Task is core metadata, never an NLU-generated identity. Ordinary clarification does not create another Task.
+A pending interaction reuses the issued `request(slot=...)`, `select(...)`, or `confirm(...)` data. Its owning Task is core metadata, never an NLU-generated identity. Its owner and value destination can differ: Welcome owns the name question, but the name is session-scoped. Ordinary clarification does not create another Task. “Expectation” in the wider cases means this outstanding response context; standing input rules live in the task modules and do not require a prior question.
 
-**Clear an expectation when answered, rejected, invalidated, or superseded—not merely because input updated its Task.** A system turn may combine information with a question; each owner's current question must be unambiguous.
+**Clear an interaction when answered, rejected, invalidated, or superseded—not merely because input updated its Task.** A system turn may combine information with a question. The first slice asks name and the Play offer sequentially, with only one active reply target.
 
 Expectations guide interpretation, not permitted answer syntax. Extra information, corrections, new goals, and controls remain possible. For example, `inform(part=back-seat, theme=family)` can help resolve a play goal even while its question asks for `flow_id`.
 
@@ -135,15 +145,15 @@ Expectations guide interpretation, not permitted answer syntax. Extra informatio
 The choice list lives **only inside an outstanding `select` expectation**:
 
 ```text
-expectation = select(flow_id=[rear_displays, rear_audio])
+pendingInteraction = {ownerTaskId: T1, question: select(flow_id=[rear_displays, rear_audio])}
 User: inform(choice=ordinal(2))
-Update: flow_id = rear_audio; expectation = null
+Update: T1.flow_id = rear_audio; pendingInteraction = null
 ```
 
 - After clearing, that list cannot resolve a later ordinal.
 - `inform(flows=[...])` creates no expectation or ordinal-reference context.
 - Resolve against the actual offered order, never a fresh catalog query or another list that happens to contain enough items.
-- An unanswered question may remain on a suspended Task and be restored/reissued on return.
+- Target interruption behavior preserves an unanswered interaction with its suspended owner and restores/reissues it on return. Saved interactions are beyond the first slice's single active question.
 - Trace/history must not become a hidden fallback for cleared lists.
 
 There is no `retained_choices` field. This intentionally withdraws the earlier post-answer retention requirement; [C27](DIALOGUE_EXAMPLES.md#c27) and [C28](DIALOGUE_EXAMPLES.md#c28) specify the resulting limits.
@@ -152,11 +162,18 @@ Task completion is a domain decision, not a consequence of every `inform`. Help 
 
 ## 4. Processing shape
 
-The first [task-rules rewrite proposal](RULES_REWRITE.md) folds contextual interpretation into input rules that update a private working state. A separate whole-turn `bind` phase is optional; individual lookups and matching checks stay read-only.
+The [implemented first slice](RULES_REWRITE.md) folds contextual interpretation into task-local handlers that update a private working state. There is no separate binding/report/decision pipeline:
 
-The core applies the complete input, asks task policy for a `Decision`, records issued outputs and selected lifecycle changes, then returns state, outputs, and trace. Adapters execute after the host accepts that state. The proposal contains the step sketch and Java rule-table shape; detailed interfaces and runner semantics remain design work.
+```text
+working = copy(before)
+handleInput(working, input)       # may resolve a question and admit a goal directly
+advanceFocusedTask(working)      # once for an input that requests advancement
+return working, acts, commands, trace
+```
 
-Required behavior:
+Shared helpers record questions and command ownership while collecting output. `activateTask` is the common admission path for a direct request and an accepted offer. Adapters execute after the host accepts returned state. A `TurnContext` is just temporary arguments and output buffers, not another state store. Rule tables/events can be introduced only when needed; ordinary named Java methods implement this slice.
+
+Disciplines to preserve as the scope expands (composite input and suspended tasks remain target behavior):
 
 - Interpret existing references using pre-turn question/focus context; process the complete turn before choosing output.
 - Preserve act-local ownership, including an existing answer plus a new request, or cancellation plus a new goal.
@@ -201,11 +218,11 @@ The [36 reference cases](DIALOGUE_EXAMPLES.md) are the behavior-check basis. Ver
 
 ## 6. Decisions for the next design discussion
 
-1. **Rule interfaces:** refine [proposal v1](RULES_REWRITE.md): schemas, input-report/decision records, matching/consumption, mutation ownership, failure handling, and completion/refocus scheduling.
+1. **Rule scope:** extend the [lean handlers](RULES_REWRITE.md) to List/Help, then agree complete-turn matching/consumption and completion/refocus scheduling. Separate report/decision records are not prerequisites.
 2. **Answer context:** eligibility/priority of suspended expectations. Focus-local answers were proposed, not agreed; do not guess or broadcast by slot name alone.
-3. **Singleton admission:** parameter inheritance and new requests against pending/running/paused Play; switching/confirmation/stop/restart rules.
+3. **Singleton admission:** the first slice retains omitted parameters, reuses pending Play, permits an explicit retry after a terminal result, and rejects changes to outstanding execution. Agree live switching, pause, and stop/restart rules next.
 4. **Lifecycle:** retirement of list/help/root Tasks, cancellation of live play work, and callback ownership. Returning is internal behavior, not a new task kind.
 5. **Value/turn semantics:** persistence of rejected facts, multi-value AND/OR/add/remove operators, conflicting input, and ordering of several new goals.
 6. **Integrations:** typed NLU payload/unknown mentions/uncertainty; Flow concurrency and acknowledgments; feature-to-flow ID relationships; concrete CLI/log formats. Singleton Task count alone does not define SDK concurrency.
 
-Next: review the standalone rewrite proposal against these examples, then migrate the core, adapters, CLI injection syntax, and tests together. The old user `select(ordinal=...)`, request relations, and post-answer choice behavior are legacy contracts, not extra supported aliases.
+The core, adapters, CLI syntax, and tests now implement the agreed first slice together. Broaden them together as the remaining behaviors are agreed. The old user `select(ordinal=...)`, request relations, and post-answer choice behavior are legacy contracts, not extra supported aliases.

@@ -1,5 +1,8 @@
-/inject {"acts":[{"type":"request","slots":{"operation":"demonstrate","part":"back-seat"}}]}
-/aside {"acts":[{"type":"request","slots":{"operation":"explain","feature_id":"headlights"}}]}
-/inject {"acts":[{"type":"select","slots":{"ordinal":"2"}}]}
-/inject {"acts":[{"type":"select","slots":{"ordinal":"1"}}]}
+/inject {"acts":[{"type":"greet"}]}
+/inject {"acts":[{"type":"inform","slots":{"name":"Sam"}}]}
+/inject {"acts":[{"type":"affirm"}]}
+/inject {"acts":[{"type":"inform","slots":{"theme":"family"}}]}
+/inject {"acts":[{"type":"inform","slots":{"part":"back-seat"}}]}
+/inject {"acts":[{"type":"inform","slots":{"choice":"2"}}]}
+/state
 /quit

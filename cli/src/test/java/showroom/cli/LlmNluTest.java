@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.junit.Test;
-import showroom.dialogue.Act;
+import showroom.dialogue.DialogueAct;
 import static org.junit.Assert.*;
 
 public class LlmNluTest {
@@ -21,7 +21,7 @@ public class LlmNluTest {
         server.createContext("/chat", exchange -> {
             requests.add(JsonParser.parseString(LlmNlu.read(exchange.getRequestBody())).getAsJsonObject());
             JsonObject message = new JsonObject();
-            message.addProperty("content", "{\"acts\":[{\"type\":\"select\",\"slots\":{\"ordinal\":\"2\"}}]}");
+            message.addProperty("content", "{\"acts\":[{\"type\":\"inform\",\"slots\":{\"choice\":\"2\"}}]}");
             JsonObject choice = new JsonObject();
             choice.add("message", message);
             com.google.gson.JsonArray choices = new com.google.gson.JsonArray();
@@ -36,11 +36,11 @@ public class LlmNluTest {
         try {
             LlmNlu nlu = new LlmNlu("http://127.0.0.1:" + server.getAddress().getPort() + "/chat",
                     "test-model", null, new FakeFlow().list());
-            List<Act> acts = nlu.interpret("The second one");
+            List<DialogueAct> acts = nlu.interpret("The second one");
             nlu.interpret("第二个");
-            assertEquals(Act.Type.SELECT, acts.get(0).type);
-            assertEquals("2", acts.get(0).slots.get("ordinal"));
-            assertFalse(acts.get(0).slots.containsKey("feature_id"));
+            assertEquals(DialogueAct.Type.INFORM, acts.get(0).type);
+            assertEquals("2", acts.get(0).slots.get("choice"));
+            assertFalse(acts.get(0).slots.containsKey("flow_id"));
             assertEquals(2, requests.size());
             for (JsonObject request : requests) {
                 assertEquals(2, request.getAsJsonArray("messages").size());
