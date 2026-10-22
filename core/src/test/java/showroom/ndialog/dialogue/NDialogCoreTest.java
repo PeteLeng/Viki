@@ -1,5 +1,6 @@
 package showroom.ndialog.dialogue;
 
+import showroom.ndialog.agent.Agent;
 import showroom.ndialog.bridge.AppPort;
 import showroom.ndialog.bridge.Feature;
 import showroom.ndialog.nlu.Segment;

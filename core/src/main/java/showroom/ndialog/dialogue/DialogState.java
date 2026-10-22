@@ -1,5 +1,7 @@
 package showroom.ndialog.dialogue;
 
+import showroom.ndialog.agent.Agent;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -13,6 +15,7 @@ public final class DialogState {
     public Agent focused() { return stack.isEmpty() ? null : stack.get(stack.size() - 1); }
     public List<Agent> tasks() { return Collections.unmodifiableList(stack); }
     public String name() { return name; }
+    public void setName(String name) { this.name = name; }
 
     DialogState copy() {
         DialogState copy = new DialogState();
@@ -23,7 +26,7 @@ public final class DialogState {
     }
 
     Agent find(String id) {
-        for (Agent agent : stack) if (agent.id.equals(id)) return agent;
+        for (Agent agent : stack) if (agent.id().equals(id)) return agent;
         return null;
     }
 }

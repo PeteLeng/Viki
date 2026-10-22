@@ -1,5 +1,8 @@
 package showroom.ndialog.dialogue;
 
+import showroom.ndialog.agent.Agent;
+import showroom.ndialog.agent.FlowAgent;
+import showroom.ndialog.agent.WelcomeAgent;
 import showroom.ndialog.bridge.AppPort;
 import showroom.ndialog.bridge.Feature;
 import showroom.ndialog.nlu.Segment;
@@ -159,8 +162,8 @@ public final class NDialogCore {
         Turn turn = new Turn(working);
         Agent owner = working.find(agentId);
         if (owner != null && owner.running()) {
-            if (event.kind.equals("completed")) owner.status = Agent.Status.DONE;
-            else if (event.kind.equals("failed")) owner.status = Agent.Status.FAILED;
+            if (event.kind.equals("completed")) owner.complete();
+            else if (event.kind.equals("failed")) owner.fail();
             Map<String, String> slots = new LinkedHashMap<String, String>();
             if (event.kind.equals("running") || event.kind.equals("completed") || event.kind.equals("failed")) {
                 slots.put("flow_id", flowIdOf(owner));

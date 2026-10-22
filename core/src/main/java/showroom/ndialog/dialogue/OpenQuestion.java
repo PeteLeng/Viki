@@ -1,5 +1,6 @@
 package showroom.ndialog.dialogue;
 
+import showroom.ndialog.agent.Agent;
 import showroom.ndialog.bridge.Feature;
 import showroom.ndialog.nlu.Segment;
 
@@ -12,10 +13,10 @@ import java.util.Map;
  * The engine's one open question, owned by the focused agent. It adapts answer
  * segments into value segments the ordinary routing can bind.
  */
-final class OpenQuestion {
-    enum Kind { REQUEST, SELECT, CONFIRM_VALUE, CONFIRM_GOAL }
+public final class OpenQuestion {
+    public enum Kind { REQUEST, SELECT, CONFIRM_VALUE, CONFIRM_GOAL }
 
-    final Kind kind;
+    public final Kind kind;
     final String ownerId;
     final String slot;
     final String proposed;
@@ -32,28 +33,28 @@ final class OpenQuestion {
         this.goalArguments = goalArguments;
     }
 
-    static OpenQuestion request(Agent owner, String slot) {
-        return new OpenQuestion(Kind.REQUEST, owner.id, slot, null,
+    public static OpenQuestion request(Agent owner, String slot) {
+        return new OpenQuestion(Kind.REQUEST, owner.id(), slot, null,
                 Collections.<String>emptyList(), Collections.<String, String>emptyMap());
     }
 
-    static OpenQuestion select(Agent owner, String slot, List<String> choices) {
+    public static OpenQuestion select(Agent owner, String slot, List<String> choices) {
         if (choices.isEmpty()) throw new IllegalArgumentException("A selection needs choices.");
-        return new OpenQuestion(Kind.SELECT, owner.id, slot, null,
+        return new OpenQuestion(Kind.SELECT, owner.id(), slot, null,
                 Feature.immutable(choices), Collections.<String, String>emptyMap());
     }
 
-    static OpenQuestion confirmValue(Agent owner, String slot, String value) {
-        return new OpenQuestion(Kind.CONFIRM_VALUE, owner.id, slot, value,
+    public static OpenQuestion confirmValue(Agent owner, String slot, String value) {
+        return new OpenQuestion(Kind.CONFIRM_VALUE, owner.id(), slot, value,
                 Collections.<String>emptyList(), Collections.<String, String>emptyMap());
     }
 
-    static OpenQuestion confirmGoal(Agent owner, String goal, Map<String, String> arguments) {
-        return new OpenQuestion(Kind.CONFIRM_GOAL, owner.id, goal, null,
+    public static OpenQuestion confirmGoal(Agent owner, String goal, Map<String, String> arguments) {
+        return new OpenQuestion(Kind.CONFIRM_GOAL, owner.id(), goal, null,
                 Collections.<String>emptyList(), new LinkedHashMap<String, String>(arguments));
     }
 
-    boolean ownedBy(Agent agent) { return agent != null && ownerId.equals(agent.id); }
+    boolean ownedBy(Agent agent) { return agent != null && ownerId.equals(agent.id()); }
 
     DialogueAct act() {
         switch (kind) {

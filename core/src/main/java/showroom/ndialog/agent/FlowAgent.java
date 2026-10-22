@@ -1,6 +1,9 @@
-package showroom.ndialog.dialogue;
+package showroom.ndialog.agent;
 
 import showroom.ndialog.bridge.Feature;
+import showroom.ndialog.dialogue.DialogueAct;
+import showroom.ndialog.dialogue.OpenQuestion;
+import showroom.ndialog.dialogue.Turn;
 import showroom.ndialog.nlu.Segment;
 
 import java.util.ArrayList;
@@ -10,13 +13,13 @@ import java.util.Map;
 import java.util.Objects;
 
 /** The flow goal: binds id/part/theme values, narrows the catalog, asks select/confirm, starts execution. */
-final class FlowAgent extends Agent {
+public final class FlowAgent extends Agent {
     private final List<Feature> catalog;
     private String flowId;
     private String part;
     private String theme;
 
-    FlowAgent(List<Feature> catalog) {
+    public FlowAgent(List<Feature> catalog) {
         super(Agent.newId());
         this.catalog = catalog;
     }
@@ -34,7 +37,7 @@ final class FlowAgent extends Agent {
      * carries id/part/theme. Value segments carry one named value each, so unknown
      * slots belong to other agents.
      */
-    @Override Bind bind(Segment segment, Turn turn) {
+    @Override public Bind bind(Segment segment, Turn turn) {
         boolean goal = segment.key.equals("flow");
         if (!goal && !segment.key.equals("value")) return Bind.NOT_MINE;
         Map<String, String> supplied = new LinkedHashMap<String, String>();
@@ -80,13 +83,13 @@ final class FlowAgent extends Agent {
         return Bind.BOUND;
     }
 
-    @Override void execute(Turn turn) {
+    @Override public void execute(Turn turn) {
         if (flowId == null || status != Status.IDLE) return;
         status = Status.RUNNING;
         turn.start(this, flowId);
     }
 
-    @Override void onFocus(Turn turn) {
+    @Override public void onFocus(Turn turn) {
         if (flowId != null || status != Status.IDLE) return;
         List<String> matches = new ArrayList<String>();
         for (Feature flow : catalog) {
@@ -101,18 +104,18 @@ final class FlowAgent extends Agent {
         }
     }
 
-    @Override void rejected(Turn turn, OpenQuestion question) {
+    @Override public void rejected(Turn turn, OpenQuestion question) {
         if (question.kind != OpenQuestion.Kind.CONFIRM_VALUE) return;
         turn.ask(OpenQuestion.request(this, "id"));
     }
 
-    @Override Agent copy() {
+    @Override public Agent copy() {
         FlowAgent copy = new FlowAgent(id, catalog, flowId, part, theme);
         copy.status = status;
         return copy;
     }
 
-    String flowId() { return flowId; }
+    public String flowId() { return flowId; }
 
     private Feature feature(String id) {
         for (Feature flow : catalog) if (flow.id.equals(id)) return flow;
