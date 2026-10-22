@@ -1,6 +1,6 @@
 # Dialogue v0: conversation reference
 
-These cases illustrate [MVP_DESIGN.md](MVP_DESIGN.md). They are intended interpretations, not measured NLU outputs or runnable `/inject` JSON. Each case is independent unless stated otherwise.
+These cases illustrate [MVP_DESIGN.md](MVP_DESIGN.md). They are intended interpretations, not measured NLU outputs or runnable `/inject` JSON. Each case is independent unless stated otherwise. Phase walkthroughs use the draft [rules-rewrite v1](RULES_REWRITE.md) processing shape.
 
 **U/S** give an utterance and its DialogueActs. **Core/App** describe commands and application evidence. Bracketed acts belong to one turn, not competing interpretations. `T1`/`T2` are internal Task IDs; NLU never invents them. Wording and optional policy replies are illustrative; state, meaning, and offered order are the checks.
 
@@ -126,8 +126,7 @@ The first answer sets `theme=entertainment`; the later question asks for `flow_i
 | --- | --- |
 | NLU | Supplies named values, no Task ID or chosen flow |
 | `copy(before)` | New working state version; same logical Task T1 |
-| `resolve_input` | Associates useful information with T1 despite its question asking for `flow_id` |
-| `apply_input_rules` | Sets part/theme; invalidates the old choice question whose candidates no longer fit |
+| `apply_input_rules` | Identifies T1, accepts part/theme despite the question asking for `flow_id`, and invalidates the outdated choice question |
 | `choose_next` | Matches both supplied values; selects the two-flow question |
 | `record_issued_outputs` | Stores the selected question as T1's expectation |
 | Lifecycle/host | No Task added/completed; host accepts state, then renders output |
@@ -143,8 +142,7 @@ Result: `flow_id=unset`, `part=back-seat`, `theme=family`, execution not started
 
 | Phase | Consequence |
 | --- | --- |
-| Resolution | No particular proposal/flow is supplied by affirming this selection |
-| Input update | No accepted parameter change; expectation is not answered |
+| Input rules | No applicable confirmation acceptance and no chosen flow; no parameter update or answered expectation |
 | Policy | Example choice: repeat the still-needed selection |
 | Output recording | Reissued expectation has the same contents |
 | Lifecycle | None |

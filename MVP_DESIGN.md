@@ -152,28 +152,13 @@ Task completion is a domain decision, not a consequence of every `inform`. Help 
 
 ## 4. Processing shape
 
-The agreed starting point for detailed rule design is:
+The first [task-rules rewrite proposal](RULES_REWRITE.md) folds contextual interpretation into input rules that update a private working state. A separate whole-turn `bind` phase is optional; individual lookups and matching checks stay read-only.
 
-```text
-step(before, input):
-    working = copy(before)
-
-    resolved = resolve_input(input, before)
-    apply_input_rules(working, resolved)
-
-    decision = choose_next(working, resolved)
-
-    record_issued_outputs(working, decision)
-    apply_selected_lifecycle_changes(working, decision)
-
-    return working, decision.outputs, trace
-```
-
-Resolution identifies usable values and references. Task rules decide goal changes and next output. State update applies/records those decisions. Adapters render DialogueActs or execute FlowCommands. These are responsibilities, not a requirement for three separate modules; exact interfaces are the next design step.
+The core applies the complete input, asks task policy for a `Decision`, records issued outputs and selected lifecycle changes, then returns state, outputs, and trace. Adapters execute after the host accepts that state. The proposal contains the step sketch and Java rule-table shape; detailed interfaces and runner semantics remain design work.
 
 Required behavior:
 
-- Resolve existing references before this input changes focus; process the complete turn before choosing output.
+- Interpret existing references using pre-turn question/focus context; process the complete turn before choosing output.
 - Preserve act-local ownership, including an existing answer plus a new request, or cancellation plus a new goal.
 - Record issued questions and command ownership before dispatch. The host accepts returned state before invoking adapters.
 - Policy uses parameters **and progress/input**; a remembered `flow_id` must not trigger repeated starts.
@@ -216,11 +201,11 @@ The [36 reference cases](DIALOGUE_EXAMPLES.md) are the behavior-check basis. Ver
 
 ## 6. Decisions for the next design discussion
 
-1. **Rule interfaces:** schemas, resolution/decision records, mutation ownership, failure/partial-turn handling, and immediate completion/refocus scheduling.
+1. **Rule interfaces:** refine [proposal v1](RULES_REWRITE.md): schemas, input-report/decision records, matching/consumption, mutation ownership, failure handling, and completion/refocus scheduling.
 2. **Answer context:** eligibility/priority of suspended expectations. Focus-local answers were proposed, not agreed; do not guess or broadcast by slot name alone.
 3. **Singleton admission:** parameter inheritance and new requests against pending/running/paused Play; switching/confirmation/stop/restart rules.
 4. **Lifecycle:** retirement of list/help/root Tasks, cancellation of live play work, and callback ownership. Returning is internal behavior, not a new task kind.
 5. **Value/turn semantics:** persistence of rejected facts, multi-value AND/OR/add/remove operators, conflicting input, and ordering of several new goals.
 6. **Integrations:** typed NLU payload/unknown mentions/uncertainty; Flow concurrency and acknowledgments; feature-to-flow ID relationships; concrete CLI/log formats. Singleton Task count alone does not define SDK concurrency.
 
-Next: agree the detailed rule-module shapes against these examples, then migrate the core, adapters, CLI injection syntax, and tests together. The old user `select(ordinal=...)`, request relations, and post-answer choice behavior are legacy contracts, not extra supported aliases.
+Next: review the standalone rewrite proposal against these examples, then migrate the core, adapters, CLI injection syntax, and tests together. The old user `select(ordinal=...)`, request relations, and post-answer choice behavior are legacy contracts, not extra supported aliases.

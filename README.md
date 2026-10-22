@@ -6,6 +6,8 @@ A reusable Java dialogue core and an early CLI prototype.
 
 [`MVP_DESIGN.md`](MVP_DESIGN.md) defines the **target v0 contract**;
 [`DIALOGUE_EXAMPLES.md`](DIALOGUE_EXAMPLES.md) supplies its conversation examples.
+[`RULES_REWRITE.md`](RULES_REWRITE.md) is the standalone v1 proposal for task-local
+input transitions and policy rule tables, with a migration plan.
 
 The runnable commands and implementation notes below describe the earlier Java
 prototype: `operation=browse|explain|demonstrate`, user `select(ordinal=...)`,
