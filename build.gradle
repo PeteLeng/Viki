@@ -1,0 +1,10 @@
+subprojects {
+    repositories {
+        maven { url 'https://cmc.centralrepo.rnd.huawei.com/artifactory/maven-central-repo/' }
+        mavenCentral()
+    }
+    tasks.withType(JavaCompile).configureEach {
+        options.release = 8
+        options.encoding = 'UTF-8'
+    }
+}
