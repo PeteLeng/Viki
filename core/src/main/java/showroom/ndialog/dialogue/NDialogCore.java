@@ -15,8 +15,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * The dialogue engine. Per segment: absorb through the open question, else bind by
- * stack walk, else spawn; then refocus, execute, clean up, and let the focus take
+ * The dialogue engine. Per segment: the open question translates an answer into a
+ * directly bindable form, the stack binds nearest-first, else a goal agent spawns;
+ * then the focus executes, finished agents leave the stack, and the focus takes
  * initiative. Flow notifications bypass this pipeline.
  */
 public final class NDialogCore {
@@ -33,109 +34,76 @@ public final class NDialogCore {
         this.catalog = Feature.immutable(catalog);
     }
 
-    /** Returns the next state; its acts and starts are this turn's output. */
+    /** Segments are nonempty and validated upstream. Returns the next state; its acts and starts are this turn's output. */
     public DialogState handleUserTurn(DialogState before, List<Segment> segments) {
-        DialogState working = before.copy();
-        if (segments == null || segments.isEmpty()) {
-            working.error("unsupported_input", "Supply at least one segment.");
-            return working;
-        }
+        DialogState state = before.copy();
         for (Segment segment : segments) {
-            if (segment == null) {
-                working.error("unsupported_input", "Segments cannot be null.");
-                continue;
-            }
             if (GLOBAL_KEYS.contains(segment.key)) {
-                working.error("unsupported_input", "The '" + segment.key + "' control is not implemented in this slice.");
+                state.error("unsupported_input", "The '" + segment.key + "' control is not implemented in this slice.");
                 continue;
             }
-            process(working, segment);
-        }
-        return working;
-    }
 
-    private void process(DialogState state, Segment segment) {
-        OpenQuestion question = state.openQuestion;
-        if (question != null) {
-            OpenQuestion.Outcome outcome = question.adapt(segment);
-            if (outcome.kind != OpenQuestion.Outcome.Kind.MISS) {
-                apply(state, question, outcome);
-                advance(state);
-                return;
+            // The open question is bookkeeping: translate an answer into a bindable form.
+            Segment bindable = segment;
+            OpenQuestion question = state.openQuestion;
+            if (question != null) {
+                OpenQuestion.Outcome outcome = question.adapt(segment);
+                if (outcome.kind != OpenQuestion.Outcome.Kind.MISS) {
+                    if (outcome.kind == OpenQuestion.Outcome.Kind.REPEATED) {
+                        state.say(question.act());
+                        continue;
+                    }
+                    if (outcome.kind == OpenQuestion.Outcome.Kind.ERROR) {
+                        state.error(outcome.code, outcome.description);
+                        continue;
+                    }
+                    state.openQuestion = null;
+                    Agent owner = state.find(question.ownerId);
+                    if (outcome.kind == OpenQuestion.Outcome.Kind.REJECTED) {
+                        if (owner != null) owner.rejected(state, question);
+                        bindable = null;
+                    } else {
+                        bindable = outcome.translated;
+                    }
+                }
             }
-        }
-        route(state, segment);
-        advance(state);
-    }
 
-    private void apply(DialogState state, OpenQuestion question, OpenQuestion.Outcome outcome) {
-        switch (outcome.kind) {
-            case TRANSLATED:
-                state.openQuestion = null;
-                Agent owner = state.find(question.ownerId);
-                if (owner != null) owner.resolved(state, question);
-                route(state, outcome.translated);
-                break;
-            case REJECTED:
-                state.openQuestion = null;
-                Agent rejectOwner = state.find(question.ownerId);
-                if (rejectOwner != null) rejectOwner.rejected(state, question);
-                break;
-            case REPEATED:
-                state.say(question.act());
-                break;
-            case ERROR:
-                state.error(outcome.code, outcome.description);
-                break;
-            default:
-                break;
-        }
-    }
+            // Bind nearest agent first; spawning a goal agent is the fallback.
+            if (bindable != null) {
+                boolean bound = false;
+                for (int i = state.stack.size() - 1; i >= 0; i--) {
+                    if (state.stack.get(i).bind(bindable, state) != Agent.Bind.NOT_MINE) {
+                        bound = true;
+                        break;
+                    }
+                }
+                if (!bound) {
+                    if (bindable.key.equals("wakeup")) {
+                        state.say(DialogueAct.greet());
+                        if (state.stack.isEmpty()) {
+                            WelcomeAgent candidate = new WelcomeAgent();
+                            candidate.bind(bindable, state);
+                            state.stack.add(candidate);
+                        }
+                    } else if (bindable.key.equals("flow")) {
+                        FlowAgent candidate = new FlowAgent(catalog);
+                        if (candidate.bind(bindable, state) == Agent.Bind.BOUND) state.stack.add(candidate);
+                    } else {
+                        state.error("unresolved_input", "No agent wants '" + bindable.key + "'. Greet or request a flow first.");
+                    }
+                }
+            }
 
-    /** Nearest agent first; spawning is the fallback when nobody binds the segment. */
-    private void route(DialogState state, Segment segment) {
-        for (int i = state.stack.size() - 1; i >= 0; i--) {
-            if (state.stack.get(i).bind(segment, state) != Agent.Bind.NOT_MINE) return;
-        }
-        spawn(state, segment);
-    }
-
-    private void spawn(DialogState state, Segment segment) {
-        if (segment.key.equals("wakeup")) {
-            state.say(DialogueAct.greet());
-            if (!state.stack.isEmpty()) return;
-            WelcomeAgent candidate = new WelcomeAgent();
-            candidate.bind(segment, state);
-            state.stack.add(candidate);
-            return;
-        }
-        if (segment.key.equals("flow")) {
-            FlowAgent candidate = new FlowAgent(catalog);
-            if (candidate.bind(segment, state) == Agent.Bind.BOUND) state.stack.add(candidate);
-            return;
-        }
-        state.error("unresolved_input", "No agent wants '" + segment.key + "'. Greet or request a flow first.");
-    }
-
-    private void advance(DialogState state) {
-        refocus(state);
-        executeFocus(state);
-        cleanup(state);
-        onFocus(state);
-    }
-
-    /** The open question always belongs to the focus; a focus shift clears it. */
-    private void refocus(DialogState state) {
-        OpenQuestion question = state.openQuestion;
-        if (question != null) {
+            // The question belongs to the focus; then execute, clean up, take initiative.
+            question = state.openQuestion;
             Agent focus = state.focused();
-            if (focus == null || !question.ownedBy(focus)) state.openQuestion = null;
+            if (question != null && (focus == null || !question.ownedBy(focus))) state.openQuestion = null;
+            if (focus != null && !focus.finished()) focus.execute(state);
+            cleanup(state);
+            focus = state.focused();
+            if (focus != null && !focus.finished() && state.openQuestion == null) focus.onFocus(state);
         }
-    }
-
-    private void executeFocus(DialogState state) {
-        Agent focus = state.focused();
-        if (focus != null && !focus.finished()) focus.execute(state);
+        return state;
     }
 
     private void cleanup(DialogState state) {
@@ -146,12 +114,6 @@ public final class NDialogCore {
                 state.stack.remove(i);
             }
         }
-    }
-
-    private void onFocus(DialogState state) {
-        Agent focus = state.focused();
-        if (focus == null || focus.finished() || state.openQuestion != null) return;
-        focus.onFocus(state);
     }
 
     /** Application notifications update a running agent's status; they never rerun input policy. */

@@ -33,9 +33,6 @@ public abstract class Agent {
     /** The user rejected this agent's pending proposal. */
     public abstract void rejected(DialogState state, OpenQuestion question);
 
-    /** The open question was resolved by acceptance or by a translated answer. */
-    public void resolved(DialogState state, OpenQuestion question) { }
-
     public abstract Agent copy();
 
     public final String id() { return id; }
