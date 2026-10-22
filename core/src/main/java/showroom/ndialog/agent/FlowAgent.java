@@ -2,8 +2,8 @@ package showroom.ndialog.agent;
 
 import showroom.ndialog.bridge.Feature;
 import showroom.ndialog.dialogue.DialogueAct;
+import showroom.ndialog.dialogue.DialogState;
 import showroom.ndialog.dialogue.OpenQuestion;
-import showroom.ndialog.dialogue.Turn;
 import showroom.ndialog.nlu.Segment;
 
 import java.util.ArrayList;
@@ -37,7 +37,7 @@ public final class FlowAgent extends Agent {
      * carries id/part/theme. Value segments carry one named value each, so unknown
      * slots belong to other agents.
      */
-    @Override public Bind bind(Segment segment, Turn turn) {
+    @Override public Bind bind(Segment segment, DialogState state) {
         boolean goal = segment.key.equals("flow");
         if (!goal && !segment.key.equals("value")) return Bind.NOT_MINE;
         Map<String, String> supplied = new LinkedHashMap<String, String>();
@@ -45,68 +45,68 @@ public final class FlowAgent extends Agent {
             if (slot.getKey().equals("id") || slot.getKey().equals("part") || slot.getKey().equals("theme")) {
                 supplied.put(slot.getKey(), slot.getValue());
             } else if (goal) {
-                turn.error("unsupported_input", "Unsupported flow argument: " + slot.getKey());
+                state.error("unsupported_input", "Unsupported flow argument: " + slot.getKey());
                 return Bind.REJECTED;
             }
         }
         if (supplied.isEmpty() && !goal) return Bind.NOT_MINE;
-        return apply(supplied, turn);
+        return apply(supplied, state);
     }
 
     /** Validate a complete set of arguments before assigning any of them. */
-    private Bind apply(Map<String, String> supplied, Turn turn) {
+    private Bind apply(Map<String, String> supplied, DialogState state) {
         String nextFlow = supplied.containsKey("id") ? supplied.get("id") : flowId;
         String nextPart = supplied.containsKey("part") ? supplied.get("part") : part;
         String nextTheme = supplied.containsKey("theme") ? supplied.get("theme") : theme;
         if (nextFlow != null) {
             Feature flow = feature(nextFlow);
             if (flow == null) {
-                turn.error("unknown_flow", "Unknown flow id: " + nextFlow);
+                state.error("unknown_flow", "Unknown flow id: " + nextFlow);
                 return Bind.REJECTED;
             }
             if (!flow.matches(nextPart, nextTheme)) {
-                turn.error("conflicting_values", "The flow conflicts with the supplied part/theme.");
+                state.error("conflicting_values", "The flow conflicts with the supplied part/theme.");
                 return Bind.REJECTED;
             }
         }
         boolean changed = !Objects.equals(nextFlow, flowId)
                 || !Objects.equals(nextPart, part) || !Objects.equals(nextTheme, theme);
         if (running() && changed) {
-            turn.error("unsupported_input", "Changing issued flow work needs a new request after execution ends.");
+            state.error("unsupported_input", "Changing issued flow work needs a new request after execution ends.");
             return Bind.REJECTED;
         }
         boolean filtersChanged = !Objects.equals(nextPart, part) || !Objects.equals(nextTheme, theme);
         flowId = nextFlow;
         part = nextPart;
         theme = nextTheme;
-        if (supplied.containsKey("id") || filtersChanged) turn.clearQuestion(this);
+        if (supplied.containsKey("id") || filtersChanged) state.clearQuestion(this);
         return Bind.BOUND;
     }
 
-    @Override public void execute(Turn turn) {
+    @Override public void execute(DialogState state) {
         if (flowId == null || status != Status.IDLE) return;
         status = Status.RUNNING;
-        turn.start(this, flowId);
+        state.requestStart(this, flowId);
     }
 
-    @Override public void onFocus(Turn turn) {
+    @Override public void onFocus(DialogState state) {
         if (flowId != null || status != Status.IDLE) return;
         List<String> matches = new ArrayList<String>();
         for (Feature flow : catalog) {
             if (flow.matches(part, theme)) matches.add(flow.id);
         }
         if (matches.isEmpty()) {
-            turn.error("no_matches", "No flows match. Try another part or theme.");
+            state.error("no_matches", "No flows match. Try another part or theme.");
         } else if (matches.size() == 1) {
-            turn.ask(OpenQuestion.confirmValue(this, "id", matches.get(0)));
+            state.ask(OpenQuestion.confirmValue(this, "id", matches.get(0)));
         } else {
-            turn.ask(OpenQuestion.select(this, "id", matches));
+            state.ask(OpenQuestion.select(this, "id", matches));
         }
     }
 
-    @Override public void rejected(Turn turn, OpenQuestion question) {
+    @Override public void rejected(DialogState state, OpenQuestion question) {
         if (question.kind != OpenQuestion.Kind.CONFIRM_VALUE) return;
-        turn.ask(OpenQuestion.request(this, "id"));
+        state.ask(OpenQuestion.request(this, "id"));
     }
 
     @Override public Agent copy() {

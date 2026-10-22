@@ -8,24 +8,26 @@ question.
 
 ```text
 handleUserTurn(state, segments):
-    working = copy(state)
+    working = copy(state)              # the copy starts with fresh output lists
     for each segment:                  # the interpreter pre-segments the utterance
         if global keyword: report unsupported, continue
         absorb(segment)                # the open question translates answers
         else route(segment)            # stack walk (nearest first), else spawn
-        refocus()                      # push spawned agents; the question must belong to focus
+        refocus()                      # the question must belong to the focus
         executeFocus()                 # the focus performs application side effects
         cleanup()                      # remove finished agents (idle -> running -> done/failed)
         onFocus()                      # the focus takes initiative when nothing is open
-    return state, acts, starts
+    return working                     # state carries this turn's acts and starts
 ```
 
 ## The pieces
 
 - **`Segment`** — user input unit: a `key` plus string slots. The interpreter
   (opencode NLU today) is stateless and produces segments in order.
-- **`DialogState`** — agent stack (top is focus), the one `openQuestion`,
-  session `name`.
+- **`DialogState`** — the single shared object: agent stack (top is focus), the
+  one `openQuestion`, session `name`, and the current turn's `acts` and `start`
+  requests. `ask()` stores and speaks a question in one step; `copy()` snapshots
+  without the previous turn's output.
 - **`Agent`** — a conversational goal. Subclasses own their fields and override
   `bind` / `execute` / `onFocus` / `rejected`. `bind` returns `NOT_MINE`
   (walk continues), `BOUND` (values applied), or `REJECTED` (error act emitted,
@@ -35,14 +37,12 @@ handleUserTurn(state, segments):
   a goal offer + `yes` becomes a bare `flow` segment that spawns. Outcomes:
   translated / rejected / repeated / error / miss. It always belongs to the
   focus; refocus clears it when focus moves.
-- **`Result`** — next state, output acts, and `starts` the host dispatches
-  after accepting the state.
 
 ## Invariants and disciplines
 
 - Binding precedence: global keywords, then the open question, then the stack
   walk (nearest first), then spawning. Ambiguity is not guessed.
-- Spawned agents are pushed during refocus, before execute, so a direct
+- Spawned agents enter the stack immediately, before execute, so a direct
   `flow{id=...}` starts in the same turn it was requested.
 - Validate a complete argument set before assigning any of it; invalid
   arguments leave the state untouched.
@@ -57,7 +57,7 @@ handleUserTurn(state, segments):
 
 ## Deviations from the sketch, deliberately
 
-- `execute()` requests a start through the turn instead of calling the app
+- `execute()` requests a start through the state instead of calling the app
   directly: the host dispatches starts after accepting the returned state, so
   a synchronous application cannot mutate mid-turn state.
 - Welcome does not complete when Flow spawns; it stays below on the stack so

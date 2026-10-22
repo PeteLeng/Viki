@@ -50,7 +50,7 @@ interpreter. One value per segment in this slice.
 | `stop`, `resume`, `quit`, `help`, `list` | Global controls — reported unsupported in this slice |
 
 System output uses `DialogueAct` (greet/request/select/confirm/inform);
-application work is requested through `Result.starts`, which the host dispatches
+application work is requested through `state.starts()`, which the host dispatches
 after accepting the returned state.
 
 ## CLI

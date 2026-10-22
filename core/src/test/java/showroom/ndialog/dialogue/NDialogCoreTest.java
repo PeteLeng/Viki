@@ -1,12 +1,6 @@
 package showroom.ndialog.dialogue;
 
-import showroom.ndialog.agent.Agent;
-import showroom.ndialog.bridge.AppPort;
-import showroom.ndialog.bridge.Feature;
-import showroom.ndialog.nlu.Segment;
-
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -15,6 +9,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import org.junit.Test;
+import showroom.ndialog.agent.Agent;
+import showroom.ndialog.bridge.AppPort;
+import showroom.ndialog.bridge.Feature;
+import showroom.ndialog.nlu.Segment;
 
 public class NDialogCoreTest {
     private final NDialogCore core = new NDialogCore(catalog());
@@ -41,39 +39,37 @@ public class NDialogCoreTest {
         return catalog;
     }
 
-    private Result turn(Segment segment) {
-        Result result = core.handleUserTurn(state, Collections.singletonList(segment));
-        state = result.state;
-        return result;
+    private DialogState turn(Segment segment) {
+        state = core.handleUserTurn(state, Collections.singletonList(segment));
+        return state;
     }
 
-    private Result complete(Result start) {
-        Result.Start requested = start.starts.get(0);
-        Result result = core.onFlowEvent(state, requested.agentId, new AppPort.Event("completed", "done"));
-        state = result.state;
-        return result;
+    private DialogState complete(DialogState.Start start) {
+        state = core.onFlowEvent(state, start.agentId, new AppPort.Event("completed", "done"));
+        return state;
     }
 
-    private DialogueAct lastInform(Result result) {
-        for (int i = result.acts.size() - 1; i >= 0; i--) {
-            if (result.acts.get(i).type == DialogueAct.Type.INFORM) return result.acts.get(i);
+    private DialogueAct lastInform(DialogState after) {
+        List<DialogueAct> acts = after.acts();
+        for (int i = acts.size() - 1; i >= 0; i--) {
+            if (acts.get(i).type == DialogueAct.Type.INFORM) return acts.get(i);
         }
         return null;
     }
 
     @Test public void greetingHandoffStartsSecondOfferedFlow() {
-        Result greeting = turn(Segment.of("wakeup"));
-        assertEquals(2, greeting.acts.size());
-        assertEquals(DialogueAct.Type.GREET, greeting.acts.get(0).type);
-        assertEquals(DialogueAct.Type.REQUEST, greeting.acts.get(1).type);
-        assertEquals("name", greeting.acts.get(1).slots.get("slot"));
+        DialogState greeting = turn(Segment.of("wakeup"));
+        assertEquals(2, greeting.acts().size());
+        assertEquals(DialogueAct.Type.GREET, greeting.acts().get(0).type);
+        assertEquals(DialogueAct.Type.REQUEST, greeting.acts().get(1).type);
+        assertEquals("name", greeting.acts().get(1).slots.get("slot"));
         assertEquals(OpenQuestion.Kind.REQUEST, state.openQuestion.kind);
 
-        Result named = turn(Segment.value("name", "Sam"));
+        DialogState named = turn(Segment.value("name", "Sam"));
         assertEquals("Sam", state.name());
-        assertEquals(1, named.acts.size());
-        assertEquals(DialogueAct.Type.CONFIRM, named.acts.get(0).type);
-        assertEquals("flow", named.acts.get(0).slots.get("task"));
+        assertEquals(1, named.acts().size());
+        assertEquals(DialogueAct.Type.CONFIRM, named.acts().get(0).type);
+        assertEquals("flow", named.acts().get(0).slots.get("task"));
 
         turn(Segment.of("yes"));
         assertEquals(2, state.tasks().size());
@@ -85,12 +81,12 @@ public class NDialogCoreTest {
         turn(Segment.value("part", "back-seat"));
         assertEquals(Arrays.asList("rear_displays", "rear_audio"), state.openQuestion.choices);
 
-        Result chosen = turn(new Segment("choice", Collections.singletonMap("n", "2")));
-        assertEquals(1, chosen.starts.size());
-        assertEquals("rear_audio", chosen.starts.get(0).flowId);
+        DialogState chosen = turn(new Segment("choice", Collections.singletonMap("n", "2")));
+        assertEquals(1, chosen.starts().size());
+        assertEquals("rear_audio", chosen.starts().get(0).flowId);
         assertEquals(Agent.Status.RUNNING, state.focused().status());
 
-        Result done = complete(chosen);
+        DialogState done = complete(chosen.starts().get(0));
         assertEquals(1, state.tasks().size());
         assertEquals("completed", lastInform(done).slots.get("execution_status"));
         assertEquals("rear_audio", lastInform(done).slots.get("flow_id"));
@@ -99,17 +95,17 @@ public class NDialogCoreTest {
     }
 
     @Test public void directFlowRequestStartsImmediately() {
-        Result result = turn(new Segment("flow", Collections.singletonMap("id", "headlights")));
-        assertEquals(1, result.starts.size());
-        assertEquals("headlights", result.starts.get(0).flowId);
-        assertTrue(result.acts.isEmpty());
+        DialogState started = turn(new Segment("flow", Collections.singletonMap("id", "headlights")));
+        assertEquals(1, started.starts().size());
+        assertEquals("headlights", started.starts().get(0).flowId);
+        assertTrue(started.acts().isEmpty());
         assertEquals(Agent.Status.RUNNING, state.focused().status());
 
-        complete(result);
+        complete(started.starts().get(0));
         assertTrue(state.tasks().isEmpty());
 
-        Result stale = core.onFlowEvent(state, result.starts.get(0).agentId, new AppPort.Event("completed", null));
-        assertTrue(stale.acts.isEmpty());
+        DialogState stale = core.onFlowEvent(state, started.starts().get(0).agentId, new AppPort.Event("completed", null));
+        assertTrue(stale.acts().isEmpty());
         assertTrue(state.tasks().isEmpty());
     }
 
@@ -118,21 +114,21 @@ public class NDialogCoreTest {
         assertEquals(OpenQuestion.Kind.CONFIRM_VALUE, state.openQuestion.kind);
         assertEquals("headlights", state.openQuestion.proposed);
 
-        Result accepted = turn(Segment.of("yes"));
-        assertEquals(1, accepted.starts.size());
-        assertEquals("headlights", accepted.starts.get(0).flowId);
+        DialogState accepted = turn(Segment.of("yes"));
+        assertEquals(1, accepted.starts().size());
+        assertEquals("headlights", accepted.starts().get(0).flowId);
     }
 
     @Test public void deniedConfirmationAsksForReplacement() {
         turn(new Segment("flow", Collections.singletonMap("theme", "visibility")));
-        Result denied = turn(Segment.of("no"));
-        assertEquals(1, denied.acts.size());
-        assertEquals(DialogueAct.Type.REQUEST, denied.acts.get(0).type);
+        DialogState denied = turn(Segment.of("no"));
+        assertEquals(1, denied.acts().size());
+        assertEquals(DialogueAct.Type.REQUEST, denied.acts().get(0).type);
         assertEquals(OpenQuestion.Kind.REQUEST, state.openQuestion.kind);
 
-        Result picked = turn(Segment.value("id", "headlights"));
-        assertEquals(1, picked.starts.size());
-        assertEquals("headlights", picked.starts.get(0).flowId);
+        DialogState picked = turn(Segment.value("id", "headlights"));
+        assertEquals(1, picked.starts().size());
+        assertEquals("headlights", picked.starts().get(0).flowId);
     }
 
     @Test public void nameCorrectionWalksBackStack() {
@@ -140,14 +136,14 @@ public class NDialogCoreTest {
         turn(Segment.value("name", "Sam"));
         turn(Segment.of("yes"));
 
-        Result correction = turn(Segment.value("name", "Samuel"));
-        assertTrue(correction.acts.isEmpty());
+        DialogState correction = turn(Segment.value("name", "Samuel"));
+        assertTrue(correction.acts().isEmpty());
         assertEquals("Samuel", state.name());
         assertEquals(2, state.tasks().size());
         assertEquals(OpenQuestion.Kind.SELECT, state.openQuestion.kind);
 
-        Result chosen = turn(new Segment("choice", Collections.singletonMap("n", "1")));
-        assertEquals("rear_displays", chosen.starts.get(0).flowId);
+        DialogState chosen = turn(new Segment("choice", Collections.singletonMap("n", "1")));
+        assertEquals("rear_displays", chosen.starts().get(0).flowId);
     }
 
     @Test public void bareYesAfterSelectionRepeatsTheOffer() {
@@ -155,21 +151,21 @@ public class NDialogCoreTest {
         turn(Segment.value("name", "Sam"));
         turn(Segment.of("yes"));
 
-        Result repeated = turn(Segment.of("yes"));
-        assertEquals(1, repeated.acts.size());
-        assertEquals(DialogueAct.Type.SELECT, repeated.acts.get(0).type);
-        assertEquals(4, repeated.acts.get(0).choices.size());
+        DialogState repeated = turn(Segment.of("yes"));
+        assertEquals(1, repeated.acts().size());
+        assertEquals(DialogueAct.Type.SELECT, repeated.acts().get(0).type);
+        assertEquals(4, repeated.acts().get(0).choices.size());
         assertEquals(OpenQuestion.Kind.SELECT, state.openQuestion.kind);
     }
 
     @Test public void retryAfterCompletionStartsAgain() {
-        Result first = turn(new Segment("flow", Collections.singletonMap("id", "headlights")));
-        complete(first);
+        DialogState first = turn(new Segment("flow", Collections.singletonMap("id", "headlights")));
+        complete(first.starts().get(0));
         assertTrue(state.tasks().isEmpty());
 
-        Result second = turn(new Segment("flow", Collections.singletonMap("id", "headlights")));
-        assertEquals(1, second.starts.size());
-        assertEquals("headlights", second.starts.get(0).flowId);
+        DialogState second = turn(new Segment("flow", Collections.singletonMap("id", "headlights")));
+        assertEquals(1, second.starts().size());
+        assertEquals("headlights", second.starts().get(0).flowId);
     }
 
     @Test public void unsupportedInputIsAnOutcome() {
@@ -179,10 +175,9 @@ public class NDialogCoreTest {
         java.util.Map<String, String> conflicting = new java.util.LinkedHashMap<String, String>();
         conflicting.put("id", "front_comfort");
         conflicting.put("theme", "visibility");
-        Result rejected = turn(new Segment("flow", conflicting));
+        DialogState rejected = turn(new Segment("flow", conflicting));
         assertEquals("conflicting_values", lastInform(rejected).slots.get("error"));
-        assertTrue(rejected.starts.isEmpty());
+        assertTrue(rejected.starts().isEmpty());
         assertTrue(state.tasks().isEmpty());
-        assertNotNull(state);
     }
 }

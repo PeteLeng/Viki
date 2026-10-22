@@ -6,11 +6,10 @@ import java.io.PrintWriter;
 import java.io.Reader;
 import java.util.List;
 import showroom.ndialog.bridge.AppPort;
+import showroom.ndialog.bridge.Feature;
 import showroom.ndialog.dialogue.DialogueAct;
 import showroom.ndialog.dialogue.DialogState;
-import showroom.ndialog.bridge.Feature;
 import showroom.ndialog.dialogue.NDialogCore;
-import showroom.ndialog.dialogue.Result;
 import showroom.ndialog.nlu.Segment;
 
 public final class Cli {
@@ -50,20 +49,19 @@ public final class Cli {
         }
     }
 
-    private void accept(Result result) {
-        state = result.state;
-        for (DialogueAct act : result.acts) render(act);
-        for (Result.Start start : result.starts) {
+    private void accept(DialogState after) {
+        state = after;
+        for (DialogueAct act : state.acts()) render(act);
+        for (DialogState.Start start : state.starts()) {
             out.println("Requesting flow: " + start.flowId);
             app.start(start.flowId, event -> onEvent(start, event));
         }
     }
 
-    private void onEvent(Result.Start start, AppPort.Event event) {
-        Result result = core.onFlowEvent(state, start.agentId, event);
-        state = result.state;
+    private void onEvent(DialogState.Start start, AppPort.Event event) {
+        state = core.onFlowEvent(state, start.agentId, event);
         out.println("flow: " + event.kind + " " + start.flowId);
-        for (DialogueAct act : result.acts) render(act);
+        for (DialogueAct act : state.acts()) render(act);
     }
 
     private void render(DialogueAct act) {

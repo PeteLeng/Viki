@@ -33,59 +33,59 @@ public final class NDialogCore {
         this.catalog = Feature.immutable(catalog);
     }
 
-    public Result handleUserTurn(DialogState before, List<Segment> segments) {
+    /** Returns the next state; its acts and starts are this turn's output. */
+    public DialogState handleUserTurn(DialogState before, List<Segment> segments) {
         DialogState working = before.copy();
-        Turn turn = new Turn(working);
         if (segments == null || segments.isEmpty()) {
-            turn.error("unsupported_input", "Supply at least one segment.");
-            return result(turn);
+            working.error("unsupported_input", "Supply at least one segment.");
+            return working;
         }
         for (Segment segment : segments) {
             if (segment == null) {
-                turn.error("unsupported_input", "Segments cannot be null.");
+                working.error("unsupported_input", "Segments cannot be null.");
                 continue;
             }
             if (GLOBAL_KEYS.contains(segment.key)) {
-                turn.error("unsupported_input", "The '" + segment.key + "' control is not implemented in this slice.");
+                working.error("unsupported_input", "The '" + segment.key + "' control is not implemented in this slice.");
                 continue;
             }
-            process(turn, segment);
+            process(working, segment);
         }
-        return result(turn);
+        return working;
     }
 
-    private void process(Turn turn, Segment segment) {
-        OpenQuestion question = turn.state.openQuestion;
+    private void process(DialogState state, Segment segment) {
+        OpenQuestion question = state.openQuestion;
         if (question != null) {
             OpenQuestion.Outcome outcome = question.adapt(segment);
             if (outcome.kind != OpenQuestion.Outcome.Kind.MISS) {
-                apply(turn, question, outcome);
-                advance(turn);
+                apply(state, question, outcome);
+                advance(state);
                 return;
             }
         }
-        route(turn, segment);
-        advance(turn);
+        route(state, segment);
+        advance(state);
     }
 
-    private void apply(Turn turn, OpenQuestion question, OpenQuestion.Outcome outcome) {
+    private void apply(DialogState state, OpenQuestion question, OpenQuestion.Outcome outcome) {
         switch (outcome.kind) {
             case TRANSLATED:
-                turn.state.openQuestion = null;
-                Agent owner = turn.state.find(question.ownerId);
-                if (owner != null) owner.resolved(turn, question);
-                route(turn, outcome.translated);
+                state.openQuestion = null;
+                Agent owner = state.find(question.ownerId);
+                if (owner != null) owner.resolved(state, question);
+                route(state, outcome.translated);
                 break;
             case REJECTED:
-                turn.state.openQuestion = null;
-                Agent rejectOwner = turn.state.find(question.ownerId);
-                if (rejectOwner != null) rejectOwner.rejected(turn, question);
+                state.openQuestion = null;
+                Agent rejectOwner = state.find(question.ownerId);
+                if (rejectOwner != null) rejectOwner.rejected(state, question);
                 break;
             case REPEATED:
-                turn.say(question.act());
+                state.say(question.act());
                 break;
             case ERROR:
-                turn.error(outcome.code, outcome.description);
+                state.error(outcome.code, outcome.description);
                 break;
             default:
                 break;
@@ -93,73 +93,70 @@ public final class NDialogCore {
     }
 
     /** Nearest agent first; spawning is the fallback when nobody binds the segment. */
-    private void route(Turn turn, Segment segment) {
-        for (int i = turn.state.stack.size() - 1; i >= 0; i--) {
-            if (turn.state.stack.get(i).bind(segment, turn) != Agent.Bind.NOT_MINE) return;
+    private void route(DialogState state, Segment segment) {
+        for (int i = state.stack.size() - 1; i >= 0; i--) {
+            if (state.stack.get(i).bind(segment, state) != Agent.Bind.NOT_MINE) return;
         }
-        spawn(turn, segment);
+        spawn(state, segment);
     }
 
-    private void spawn(Turn turn, Segment segment) {
+    private void spawn(DialogState state, Segment segment) {
         if (segment.key.equals("wakeup")) {
-            turn.say(DialogueAct.greet());
-            if (!turn.state.stack.isEmpty()) return;
+            state.say(DialogueAct.greet());
+            if (!state.stack.isEmpty()) return;
             WelcomeAgent candidate = new WelcomeAgent();
-            candidate.bind(segment, turn);
-            turn.spawn(candidate);
+            candidate.bind(segment, state);
+            state.stack.add(candidate);
             return;
         }
         if (segment.key.equals("flow")) {
             FlowAgent candidate = new FlowAgent(catalog);
-            if (candidate.bind(segment, turn) == Agent.Bind.BOUND) turn.spawn(candidate);
+            if (candidate.bind(segment, state) == Agent.Bind.BOUND) state.stack.add(candidate);
             return;
         }
-        turn.error("unresolved_input", "No agent wants '" + segment.key + "'. Greet or request a flow first.");
+        state.error("unresolved_input", "No agent wants '" + segment.key + "'. Greet or request a flow first.");
     }
 
-    private void advance(Turn turn) {
-        refocus(turn);
-        executeFocus(turn);
-        cleanup(turn);
-        onFocus(turn);
+    private void advance(DialogState state) {
+        refocus(state);
+        executeFocus(state);
+        cleanup(state);
+        onFocus(state);
     }
 
-    /** Spawned agents enter now, so execution and initiative already see the new focus. */
-    private void refocus(Turn turn) {
-        for (Agent agent : turn.spawned) turn.state.stack.add(agent);
-        turn.spawned.clear();
-        OpenQuestion question = turn.state.openQuestion;
+    /** The open question always belongs to the focus; a focus shift clears it. */
+    private void refocus(DialogState state) {
+        OpenQuestion question = state.openQuestion;
         if (question != null) {
-            Agent focus = turn.state.focused();
-            if (focus == null || !question.ownedBy(focus)) turn.state.openQuestion = null;
+            Agent focus = state.focused();
+            if (focus == null || !question.ownedBy(focus)) state.openQuestion = null;
         }
     }
 
-    private void executeFocus(Turn turn) {
-        Agent focus = turn.state.focused();
-        if (focus != null && !focus.finished()) focus.execute(turn);
+    private void executeFocus(DialogState state) {
+        Agent focus = state.focused();
+        if (focus != null && !focus.finished()) focus.execute(state);
     }
 
-    private void cleanup(Turn turn) {
-        for (int i = turn.state.stack.size() - 1; i >= 0; i--) {
-            Agent agent = turn.state.stack.get(i);
+    private void cleanup(DialogState state) {
+        for (int i = state.stack.size() - 1; i >= 0; i--) {
+            Agent agent = state.stack.get(i);
             if (agent.finished()) {
-                turn.clearQuestion(agent);
-                turn.state.stack.remove(i);
+                state.clearQuestion(agent);
+                state.stack.remove(i);
             }
         }
     }
 
-    private void onFocus(Turn turn) {
-        Agent focus = turn.state.focused();
-        if (focus == null || focus.finished() || turn.state.openQuestion != null) return;
-        focus.onFocus(turn);
+    private void onFocus(DialogState state) {
+        Agent focus = state.focused();
+        if (focus == null || focus.finished() || state.openQuestion != null) return;
+        focus.onFocus(state);
     }
 
     /** Application notifications update a running agent's status; they never rerun input policy. */
-    public Result onFlowEvent(DialogState before, String agentId, AppPort.Event event) {
+    public DialogState onFlowEvent(DialogState before, String agentId, AppPort.Event event) {
         DialogState working = before.copy();
-        Turn turn = new Turn(working);
         Agent owner = working.find(agentId);
         if (owner != null && owner.running()) {
             if (event.kind.equals("completed")) owner.complete();
@@ -170,17 +167,13 @@ public final class NDialogCore {
                 slots.put("execution_status", event.kind);
             }
             if (event.text != null && !event.text.trim().isEmpty()) slots.put("description", event.text);
-            if (!slots.isEmpty()) turn.say(new DialogueAct(DialogueAct.Type.INFORM, slots));
+            if (!slots.isEmpty()) working.say(new DialogueAct(DialogueAct.Type.INFORM, slots));
         }
-        cleanup(turn);
-        return result(turn);
+        cleanup(working);
+        return working;
     }
 
     private String flowIdOf(Agent owner) {
         return owner instanceof FlowAgent ? ((FlowAgent) owner).flowId() : null;
-    }
-
-    private Result result(Turn turn) {
-        return new Result(turn.state, turn.acts, turn.starts);
     }
 }
