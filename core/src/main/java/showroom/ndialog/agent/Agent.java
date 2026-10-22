@@ -1,8 +1,8 @@
 package showroom.ndialog.agent;
 
+import showroom.ndialog.dialogue.Act;
 import showroom.ndialog.dialogue.DialogState;
 import showroom.ndialog.dialogue.OpenQuestion;
-import showroom.ndialog.nlu.Segment;
 
 import java.util.UUID;
 
@@ -10,7 +10,7 @@ import java.util.UUID;
 public abstract class Agent {
     public enum Status { IDLE, RUNNING, DONE, FAILED }
 
-    /** Outcome of offering a segment to an agent. */
+    /** Outcome of offering an act to an agent. */
     public enum Bind { NOT_MINE, BOUND, REJECTED }
 
     final String id;
@@ -19,19 +19,16 @@ public abstract class Agent {
     protected Agent(String id) { this.id = id; }
 
     /**
-     * Absorb a segment's values. NOT_MINE leaves the walk untouched; BOUND applies
+     * Absorb an act's values. NOT_MINE leaves the walk untouched; BOUND applies
      * values (an error act is emitted for REJECTED, which stops the walk without values).
      */
-    public abstract Bind bind(Segment segment, DialogState state);
+    public abstract Bind bind(Act act, DialogState state);
 
     /** Perform the application side effect when ready; request starts through the state. */
     public abstract void execute(DialogState state);
 
     /** Take dialogue initiative when focused and nothing is open. */
     public abstract void onFocus(DialogState state);
-
-    /** The user rejected this agent's pending proposal. */
-    public abstract void rejected(DialogState state, OpenQuestion question);
 
     public abstract Agent copy();
 

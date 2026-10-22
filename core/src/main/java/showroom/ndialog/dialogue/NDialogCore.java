@@ -5,7 +5,6 @@ import showroom.ndialog.agent.FlowAgent;
 import showroom.ndialog.agent.WelcomeAgent;
 import showroom.ndialog.bridge.AppPort;
 import showroom.ndialog.bridge.Feature;
-import showroom.ndialog.nlu.Segment;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -15,13 +14,13 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * The dialogue engine. Per segment: the open question translates an answer into a
- * directly bindable form, the stack binds nearest-first, else a goal agent spawns;
+ * The dialogue engine. Per act: the open question translates an answer into a
+ * directly bindable act, the stack binds nearest-first, else a goal agent spawns;
  * then the focus executes, finished agents leave the stack, and the focus takes
  * initiative. Flow notifications bypass this pipeline.
  */
 public final class NDialogCore {
-    private static final Set<String> GLOBAL_KEYS = new HashSet<String>(
+    private static final Set<String> GLOBAL_TASKS = new HashSet<String>(
             Arrays.asList("stop", "resume", "quit", "help", "list"));
 
     private final List<Feature> catalog;
@@ -34,23 +33,23 @@ public final class NDialogCore {
         this.catalog = Feature.immutable(catalog);
     }
 
-    /** Segments are nonempty and validated upstream. Returns the next state; its acts and starts are this turn's output. */
-    public DialogState handleUserTurn(DialogState before, List<Segment> segments) {
+    /** Acts are nonempty and validated upstream. Returns the next state; its acts and starts are this turn's output. */
+    public DialogState handleUserTurn(DialogState before, List<Act> acts) {
         DialogState state = before.copy();
-        for (Segment segment : segments) {
-            if (GLOBAL_KEYS.contains(segment.key)) {
-                state.error("unsupported_input", "The '" + segment.key + "' control is not implemented in this slice.");
+        for (Act act : acts) {
+            if (act.type == Act.Type.REQUEST && GLOBAL_TASKS.contains(act.slot("task"))) {
+                state.error("unsupported_input", "The '" + act.slot("task") + "' control is not implemented in this slice.");
                 continue;
             }
 
-            // The open question is bookkeeping: translate an answer into a bindable form.
-            Segment bindable = segment;
+            // The open question is bookkeeping: translate an answer into a bindable act.
+            Act bindable = act;
             OpenQuestion question = state.openQuestion;
             if (question != null) {
-                OpenQuestion.Outcome outcome = question.adapt(segment);
+                OpenQuestion.Outcome outcome = question.translate(act);
                 if (outcome.kind != OpenQuestion.Outcome.Kind.MISS) {
                     if (outcome.kind == OpenQuestion.Outcome.Kind.REPEATED) {
-                        state.say(question.act());
+                        state.say(question.expected);
                         continue;
                     }
                     if (outcome.kind == OpenQuestion.Outcome.Kind.ERROR) {
@@ -58,13 +57,7 @@ public final class NDialogCore {
                         continue;
                     }
                     state.openQuestion = null;
-                    Agent owner = state.find(question.ownerId);
-                    if (outcome.kind == OpenQuestion.Outcome.Kind.REJECTED) {
-                        if (owner != null) owner.rejected(state, question);
-                        bindable = null;
-                    } else {
-                        bindable = outcome.translated;
-                    }
+                    bindable = outcome.translated;
                 }
             }
 
@@ -78,30 +71,26 @@ public final class NDialogCore {
                     }
                 }
                 if (!bound) {
-                    if (bindable.key.equals("wakeup")) {
-                        state.say(DialogueAct.greet());
-                        if (state.stack.isEmpty()) {
-                            WelcomeAgent candidate = new WelcomeAgent();
-                            candidate.bind(bindable, state);
-                            state.stack.add(candidate);
-                        }
-                    } else if (bindable.key.equals("flow")) {
+                    if (bindable.type == Act.Type.GREET) {
+                        state.say(Act.greet());
+                        if (state.stack.isEmpty()) state.stack.add(new WelcomeAgent());
+                    } else if (bindable.type == Act.Type.REQUEST && "flow".equals(bindable.slot("task"))) {
                         FlowAgent candidate = new FlowAgent(catalog);
                         if (candidate.bind(bindable, state) == Agent.Bind.BOUND) state.stack.add(candidate);
                     } else {
-                        state.error("unresolved_input", "No agent wants '" + bindable.key + "'. Greet or request a flow first.");
+                        state.error("unresolved_input", "No agent wants that. Greet or request a flow first.");
                     }
                 }
             }
 
-            // The question belongs to the focus; then execute, clean up, take initiative.
+            // The question belongs to the focus; then execute, take initiative, clean up.
             question = state.openQuestion;
             Agent focus = state.focused();
             if (question != null && (focus == null || !question.ownedBy(focus))) state.openQuestion = null;
             if (focus != null && !focus.finished()) focus.execute(state);
-            cleanup(state);
             focus = state.focused();
             if (focus != null && !focus.finished() && state.openQuestion == null) focus.onFocus(state);
+            cleanup(state);
         }
         return state;
     }
@@ -129,7 +118,7 @@ public final class NDialogCore {
                 slots.put("execution_status", event.kind);
             }
             if (event.text != null && !event.text.trim().isEmpty()) slots.put("description", event.text);
-            if (!slots.isEmpty()) working.say(new DialogueAct(DialogueAct.Type.INFORM, slots));
+            if (!slots.isEmpty()) working.say(Act.inform(slots));
         }
         cleanup(working);
         return working;

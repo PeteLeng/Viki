@@ -2,9 +2,9 @@ package showroom.cli;
 
 import java.io.IOException;
 import java.util.List;
-import showroom.ndialog.nlu.Segment;
+import showroom.ndialog.dialogue.Act;
 
-/** Text in, segments out; the interpreter takes no dialogue state in this slice. */
+/** Text in, acts out; the interpreter takes no dialogue state in this slice. */
 public interface Nlu {
-    List<Segment> interpret(String text) throws IOException;
+    List<Act> interpret(String text) throws IOException;
 }

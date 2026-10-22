@@ -1,121 +1,99 @@
 package showroom.ndialog.dialogue;
 
 import showroom.ndialog.agent.Agent;
-import showroom.ndialog.bridge.Feature;
-import showroom.ndialog.nlu.Segment;
 
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
- * The engine's one open question, owned by the focused agent. It adapts answer
- * segments into value segments the ordinary routing can bind.
+ * Bookkeeping for the one open question: its owner and the expected act. It
+ * translates answers into acts the ordinary routing can bind. A deny translates
+ * into a clear; affirming a goal offer translates into a goal request.
  */
 public final class OpenQuestion {
-    public enum Kind { REQUEST, SELECT, CONFIRM_VALUE, CONFIRM_GOAL }
-
-    public final Kind kind;
     final String ownerId;
-    final String slot;
-    final String proposed;
-    final List<String> choices;
-    final Map<String, String> goalArguments;
+    final Act expected;
 
-    private OpenQuestion(Kind kind, String ownerId, String slot, String proposed,
-                         List<String> choices, Map<String, String> goalArguments) {
-        this.kind = kind;
-        this.ownerId = ownerId;
-        this.slot = slot;
-        this.proposed = proposed;
-        this.choices = choices;
-        this.goalArguments = goalArguments;
+    private OpenQuestion(Agent owner, Act expected) {
+        this.ownerId = owner.id();
+        this.expected = expected;
     }
 
-    public static OpenQuestion request(Agent owner, String slot) {
-        return new OpenQuestion(Kind.REQUEST, owner.id(), slot, null,
-                Collections.<String>emptyList(), Collections.<String, String>emptyMap());
+    public static OpenQuestion requestValue(Agent owner, String slot) {
+        return new OpenQuestion(owner, Act.request(slot));
     }
 
-    public static OpenQuestion select(Agent owner, String slot, List<String> choices) {
-        if (choices.isEmpty()) throw new IllegalArgumentException("A selection needs choices.");
-        return new OpenQuestion(Kind.SELECT, owner.id(), slot, null,
-                Feature.immutable(choices), Collections.<String, String>emptyMap());
+    public static OpenQuestion selectValue(Agent owner, String slot, List<String> choices) {
+        return new OpenQuestion(owner, Act.select(slot, choices));
     }
 
     public static OpenQuestion confirmValue(Agent owner, String slot, String value) {
-        return new OpenQuestion(Kind.CONFIRM_VALUE, owner.id(), slot, value,
-                Collections.<String>emptyList(), Collections.<String, String>emptyMap());
+        return new OpenQuestion(owner, Act.confirm(slot, value));
     }
 
-    public static OpenQuestion confirmGoal(Agent owner, String goal, Map<String, String> arguments) {
-        return new OpenQuestion(Kind.CONFIRM_GOAL, owner.id(), goal, null,
-                Collections.<String>emptyList(), new LinkedHashMap<String, String>(arguments));
+    public static OpenQuestion confirmGoal(Agent owner, String task) {
+        return new OpenQuestion(owner, Act.confirmGoal(task));
     }
 
     boolean ownedBy(Agent agent) { return agent != null && ownerId.equals(agent.id()); }
 
-    DialogueAct act() {
-        switch (kind) {
-            case REQUEST: return DialogueAct.request(slot);
-            case SELECT: return DialogueAct.select(slot, choices);
-            case CONFIRM_VALUE: return DialogueAct.confirm(slot, proposed);
-            default: return DialogueAct.confirmGoal(slot);
+    /** Translate an answer act; MISS leaves ordinary routing to handle it. */
+    Outcome translate(Act incoming) {
+        switch (expected.type) {
+            case REQUEST: return translateRequest(incoming);
+            case SELECT: return translateSelect(incoming);
+            case CONFIRM: return translateConfirm(incoming);
+            default: return Outcome.MISS;
         }
     }
 
-    /** Translate an answer segment; MISS leaves ordinary routing to handle it. */
-    Outcome adapt(Segment input) {
-        switch (kind) {
-            case REQUEST:
-                if (input.key.equals("value") && input.slots.size() == 1 && input.slots.containsKey(slot)) {
-                    return Outcome.translated(input);
-                }
-                return Outcome.MISS;
-            case SELECT:
-                return adaptSelect(input);
-            case CONFIRM_VALUE:
-                if (input.key.equals("yes")) return Outcome.translated(Segment.value(slot, proposed));
-                if (input.key.equals("no")) return Outcome.rejected();
-                return Outcome.MISS;
-            default:
-                if (input.key.equals("yes")) return Outcome.translated(new Segment(slot, goalArguments));
-                if (input.key.equals("no")) return Outcome.rejected();
-                return Outcome.MISS;
+    private Outcome translateRequest(Act incoming) {
+        String asked = expected.soleSlot();
+        if (incoming.type == Act.Type.INFORM && incoming.slots.size() == 1 && incoming.has(asked)) {
+            return Outcome.translated(incoming);
         }
+        return Outcome.MISS;
     }
 
-    private Outcome adaptSelect(Segment input) {
-        if (input.key.equals("choice")) {
-            String raw = input.slots.get("n");
+    private Outcome translateSelect(Act incoming) {
+        String slot = expected.soleSlot();
+        List<String> choices = expected.values(slot);
+        if (incoming.type == Act.Type.INFORM && incoming.has("choice")) {
             int ordinal;
-            try { ordinal = Integer.parseInt(raw); }
+            try { ordinal = Integer.parseInt(incoming.slot("choice")); }
             catch (NumberFormatException e) {
                 return Outcome.error("unresolved_reference", "A choice needs a one-based integer.");
             }
             if (ordinal < 1 || ordinal > choices.size()) {
                 return Outcome.error("unresolved_reference", "That position has no value in the offered selection.");
             }
-            return Outcome.translated(Segment.value(slot, choices.get(ordinal - 1)));
+            return Outcome.translated(Act.inform(slot, choices.get(ordinal - 1)));
         }
-        if (input.key.equals("value") && input.slots.containsKey(slot)
-                && choices.contains(input.slots.get(slot))) {
-            return Outcome.translated(input);
+        if (incoming.type == Act.Type.INFORM && incoming.has(slot) && choices.contains(incoming.slot(slot))) {
+            return Outcome.translated(incoming);
         }
-        if (input.key.equals("yes")) return Outcome.repeated();
+        if (incoming.type == Act.Type.AFFIRM) return Outcome.repeated();
+        return Outcome.MISS;
+    }
+
+    private Outcome translateConfirm(Act incoming) {
+        String slot = expected.soleSlot();
+        if (incoming.type == Act.Type.AFFIRM) {
+            if (slot.equals("task")) return Outcome.translated(Act.goal(expected.slot(slot)));
+            return Outcome.translated(Act.inform(slot, expected.slot(slot)));
+        }
+        if (incoming.type == Act.Type.DENY) return Outcome.translated(Act.clear(slot));
         return Outcome.MISS;
     }
 
     static final class Outcome {
-        enum Kind { TRANSLATED, REJECTED, REPEATED, ERROR, MISS }
+        enum Kind { TRANSLATED, REPEATED, ERROR, MISS }
 
         final Kind kind;
-        final Segment translated;
+        final Act translated;
         final String code;
         final String description;
 
-        private Outcome(Kind kind, Segment translated, String code, String description) {
+        private Outcome(Kind kind, Act translated, String code, String description) {
             this.kind = kind;
             this.translated = translated;
             this.code = code;
@@ -124,8 +102,7 @@ public final class OpenQuestion {
 
         static final Outcome MISS = new Outcome(Kind.MISS, null, null, null);
 
-        static Outcome translated(Segment segment) { return new Outcome(Kind.TRANSLATED, segment, null, null); }
-        static Outcome rejected() { return new Outcome(Kind.REJECTED, null, null, null); }
+        static Outcome translated(Act act) { return new Outcome(Kind.TRANSLATED, act, null, null); }
         static Outcome repeated() { return new Outcome(Kind.REPEATED, null, null, null); }
         static Outcome error(String code, String description) { return new Outcome(Kind.ERROR, null, code, description); }
     }

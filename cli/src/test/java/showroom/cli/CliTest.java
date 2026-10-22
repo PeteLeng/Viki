@@ -15,12 +15,12 @@ public class CliTest {
         PrintWriter out = new PrintWriter(sink, true);
         Nlu nlu = text -> { throw new IOException("no nlu in this test"); };
         new Cli(nlu, app, out).run(new StringReader(
-                "/inject {\"segments\":[{\"key\":\"wakeup\"}]}\n"
-                        + "/inject {\"segments\":[{\"key\":\"value\",\"slots\":{\"name\":\"Sam\"}}]}\n"
-                        + "/inject {\"segments\":[{\"key\":\"yes\"}]}\n"
-                        + "/inject {\"segments\":[{\"key\":\"value\",\"slots\":{\"theme\":\"family\"}}]}\n"
-                        + "/inject {\"segments\":[{\"key\":\"value\",\"slots\":{\"part\":\"back-seat\"}}]}\n"
-                        + "/inject {\"segments\":[{\"key\":\"choice\",\"slots\":{\"n\":\"2\"}}]}\n"
+                "/inject {\"acts\":[{\"type\":\"greet\"}]}\n"
+                        + "/inject {\"acts\":[{\"type\":\"inform\",\"slots\":{\"name\":\"Sam\"}}]}\n"
+                        + "/inject {\"acts\":[{\"type\":\"affirm\"}]}\n"
+                        + "/inject {\"acts\":[{\"type\":\"inform\",\"slots\":{\"theme\":\"family\"}}]}\n"
+                        + "/inject {\"acts\":[{\"type\":\"inform\",\"slots\":{\"part\":\"back-seat\"}}]}\n"
+                        + "/inject {\"acts\":[{\"type\":\"inform\",\"slots\":{\"choice\":\"2\"}}]}\n"
                         + "/state\n"
                         + "/quit\n"));
         String output = sink.toString();

@@ -1,10 +1,9 @@
 package showroom.ndialog.agent;
 
 import showroom.ndialog.bridge.Feature;
-import showroom.ndialog.dialogue.DialogueAct;
+import showroom.ndialog.dialogue.Act;
 import showroom.ndialog.dialogue.DialogState;
 import showroom.ndialog.dialogue.OpenQuestion;
-import showroom.ndialog.nlu.Segment;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -12,7 +11,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-/** The flow goal: binds id/part/theme values, narrows the catalog, asks select/confirm, starts execution. */
+/**
+ * The flow goal: binds flow_id/part/theme values, narrows the catalog, asks
+ * select/confirm, starts execution. A cleared flow_id (a denied proposal) goes
+ * back to asking.
+ */
 public final class FlowAgent extends Agent {
     private final List<Feature> catalog;
     private String flowId;
@@ -33,19 +36,20 @@ public final class FlowAgent extends Agent {
     }
 
     /**
-     * A goal segment is always this agent's; a value segment is this agent's when it
-     * carries id/part/theme. Value segments carry one named value each, so unknown
-     * slots belong to other agents.
+     * A goal request is always this agent's; an inform is this agent's when it carries
+     * flow_id/part/theme. Other slots belong to other agents.
      */
-    @Override public Bind bind(Segment segment, DialogState state) {
-        boolean goal = segment.key.equals("flow");
-        if (!goal && !segment.key.equals("value")) return Bind.NOT_MINE;
+    @Override public Bind bind(Act act, DialogState state) {
+        boolean goal = act.type == Act.Type.REQUEST && "flow".equals(act.slot("task"));
+        if (!goal && act.type != Act.Type.INFORM) return Bind.NOT_MINE;
         Map<String, String> supplied = new LinkedHashMap<String, String>();
-        for (Map.Entry<String, String> slot : segment.slots.entrySet()) {
-            if (slot.getKey().equals("id") || slot.getKey().equals("part") || slot.getKey().equals("theme")) {
-                supplied.put(slot.getKey(), slot.getValue());
+        for (Map.Entry<String, List<String>> entry : act.slots.entrySet()) {
+            String key = entry.getKey();
+            if (key.equals("task")) continue;
+            if (key.equals("flow_id") || key.equals("part") || key.equals("theme")) {
+                supplied.put(key, act.slot(key));
             } else if (goal) {
-                state.error("unsupported_input", "Unsupported flow argument: " + slot.getKey());
+                state.error("unsupported_input", "Unsupported flow argument: " + key);
                 return Bind.REJECTED;
             }
         }
@@ -53,15 +57,15 @@ public final class FlowAgent extends Agent {
         return apply(supplied, state);
     }
 
-    /** Validate a complete set of arguments before assigning any of them. */
+    /** Validate a complete set of arguments before assigning any of them; a null value clears. */
     private Bind apply(Map<String, String> supplied, DialogState state) {
-        String nextFlow = supplied.containsKey("id") ? supplied.get("id") : flowId;
+        String nextFlow = supplied.containsKey("flow_id") ? supplied.get("flow_id") : flowId;
         String nextPart = supplied.containsKey("part") ? supplied.get("part") : part;
         String nextTheme = supplied.containsKey("theme") ? supplied.get("theme") : theme;
         if (nextFlow != null) {
             Feature flow = feature(nextFlow);
             if (flow == null) {
-                state.error("unknown_flow", "Unknown flow id: " + nextFlow);
+                state.error("unknown_flow", "Unknown flow_id: " + nextFlow);
                 return Bind.REJECTED;
             }
             if (!flow.matches(nextPart, nextTheme)) {
@@ -79,7 +83,7 @@ public final class FlowAgent extends Agent {
         flowId = nextFlow;
         part = nextPart;
         theme = nextTheme;
-        if (supplied.containsKey("id") || filtersChanged) state.clearQuestion(this);
+        if (supplied.containsKey("flow_id") || filtersChanged) state.clearQuestion(this);
         return Bind.BOUND;
     }
 
@@ -98,15 +102,10 @@ public final class FlowAgent extends Agent {
         if (matches.isEmpty()) {
             state.error("no_matches", "No flows match. Try another part or theme.");
         } else if (matches.size() == 1) {
-            state.ask(OpenQuestion.confirmValue(this, "id", matches.get(0)));
+            state.ask(OpenQuestion.confirmValue(this, "flow_id", matches.get(0)));
         } else {
-            state.ask(OpenQuestion.select(this, "id", matches));
+            state.ask(OpenQuestion.selectValue(this, "flow_id", matches));
         }
-    }
-
-    @Override public void rejected(DialogState state, OpenQuestion question) {
-        if (question.kind != OpenQuestion.Kind.CONFIRM_VALUE) return;
-        state.ask(OpenQuestion.request(this, "id"));
     }
 
     @Override public Agent copy() {

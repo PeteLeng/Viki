@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import showroom.ndialog.bridge.Feature;
-import showroom.ndialog.nlu.Segment;
+import showroom.ndialog.dialogue.Act;
 
 /** Stateless opencode-backed interpreter: one "opencode run" subprocess per utterance. */
 public final class OpenCodeNlu implements Nlu {
@@ -38,7 +38,7 @@ public final class OpenCodeNlu implements Nlu {
         this.timeoutSeconds = timeoutSeconds;
     }
 
-    @Override public List<Segment> interpret(String text) throws IOException {
+    @Override public List<Act> interpret(String text) throws IOException {
         List<String> argv = command();
         argv.add(prompt + "\n\nText to parse: " + text);
         ProcessBuilder builder = new ProcessBuilder(argv);
@@ -72,7 +72,7 @@ public final class OpenCodeNlu implements Nlu {
         int start = output.indexOf('{');
         int end = output.lastIndexOf('}');
         if (start < 0 || end < start) throw new IOException("opencode returned no JSON: " + excerpt(output));
-        return JsonCodec.segments(output.substring(start, end + 1));
+        return JsonCodec.acts(output.substring(start, end + 1));
     }
 
     private List<String> command() throws IOException {

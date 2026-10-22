@@ -17,22 +17,22 @@ public final class DialogState {
     final List<Agent> stack = new ArrayList<Agent>();
     OpenQuestion openQuestion;
     String name;
-    final List<DialogueAct> acts = new ArrayList<DialogueAct>();
+    final List<Act> acts = new ArrayList<Act>();
     final List<Start> starts = new ArrayList<Start>();
 
     public Agent focused() { return stack.isEmpty() ? null : stack.get(stack.size() - 1); }
     public List<Agent> tasks() { return Collections.unmodifiableList(stack); }
     public String name() { return name; }
     public void setName(String name) { this.name = name; }
-    public List<DialogueAct> acts() { return Collections.unmodifiableList(acts); }
+    public List<Act> acts() { return Collections.unmodifiableList(acts); }
     public List<Start> starts() { return Collections.unmodifiableList(starts); }
 
-    public void say(DialogueAct act) { acts.add(act); }
+    public void say(Act act) { acts.add(act); }
 
     /** A question is stored and asked in one step; an agent cannot set one silently. */
     public void ask(OpenQuestion question) {
         openQuestion = question;
-        say(question.act());
+        say(question.expected);
     }
 
     public void requestStart(Agent owner, String flowId) { starts.add(new Start(owner.id(), flowId)); }
@@ -46,7 +46,7 @@ public final class DialogState {
         Map<String, String> slots = new LinkedHashMap<String, String>();
         slots.put("error", code);
         slots.put("description", description);
-        say(new DialogueAct(DialogueAct.Type.INFORM, slots));
+        say(Act.inform(slots));
     }
 
     /** A snapshot without the previous turn's output; agents are deep-copied. */

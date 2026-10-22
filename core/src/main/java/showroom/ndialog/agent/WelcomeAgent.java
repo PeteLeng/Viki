@@ -1,38 +1,42 @@
 package showroom.ndialog.agent;
 
-import showroom.ndialog.dialogue.DialogueAct;
+import showroom.ndialog.dialogue.Act;
 import showroom.ndialog.dialogue.DialogState;
 import showroom.ndialog.dialogue.OpenQuestion;
-import showroom.ndialog.nlu.Segment;
-
-import java.util.Collections;
 
 /** Greets, collects the session name, offers the flow goal, then stays below flow for name corrections. */
 public final class WelcomeAgent extends Agent {
+    private boolean declined;
+
     public WelcomeAgent() { super(Agent.newId()); }
 
     private WelcomeAgent(String id) { super(id); }
 
-    @Override public Bind bind(Segment segment, DialogState state) {
-        String name = null;
-        if (segment.key.equals("wakeup") || segment.key.equals("value")) name = segment.slots.get("name");
-        if (name == null) return Bind.NOT_MINE;
-        state.setName(name);
-        return Bind.BOUND;
+    @Override public Bind bind(Act act, DialogState state) {
+        if (act.type == Act.Type.INFORM && act.has("name") && act.slot("name") != null) {
+            state.setName(act.slot("name"));
+            return Bind.BOUND;
+        }
+        if (act.type == Act.Type.INFORM && act.has("task") && act.slot("task") == null) {
+            declined = true;
+            return Bind.BOUND;
+        }
+        return Bind.NOT_MINE;
     }
 
     @Override public void execute(DialogState state) { }
 
     @Override public void onFocus(DialogState state) {
-        if (state.name() == null) state.ask(OpenQuestion.request(this, "name"));
-        else state.ask(OpenQuestion.confirmGoal(this, "flow", Collections.<String, String>emptyMap()));
+        if (state.name() == null) state.ask(OpenQuestion.requestValue(this, "name"));
+        else if (declined) {
+            state.say(Act.inform("description", "Okay. Ask me to play a flow whenever you like."));
+            complete();
+        } else state.ask(OpenQuestion.confirmGoal(this, "flow"));
     }
 
-    @Override public void rejected(DialogState state, OpenQuestion question) {
-        if (question.kind != OpenQuestion.Kind.CONFIRM_GOAL) return;
-        complete();
-        state.say(DialogueAct.inform("description", "Okay. Ask me to play a flow whenever you like."));
+    @Override public Agent copy() {
+        WelcomeAgent copy = new WelcomeAgent(id);
+        copy.declined = declined;
+        return copy;
     }
-
-    @Override public Agent copy() { return new WelcomeAgent(id); }
 }
