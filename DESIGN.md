@@ -16,8 +16,7 @@ handleInput(state, acts):
             else spawn                 # a goal act nobody binds spawns to a pending list
         top.execute()                  # the focus performs application side effects
         cleanup()                      # remove finished agents (idle -> running -> done/failed)
-        push pending                   # spawned agents enter the stack
-        refocus()                      # the question must belong to the focus
+        push pending                   # spawned agents enter; the moved focus clears the question
         onFocus()                      # the focus takes initiative when nothing is open
     return working                     # state carries this call's acts and starts
 ```

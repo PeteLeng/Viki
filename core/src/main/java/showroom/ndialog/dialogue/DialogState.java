@@ -20,7 +20,8 @@ public final class DialogState {
     final List<Act> acts = new ArrayList<Act>();
     final List<Start> starts = new ArrayList<Start>();
 
-    public Agent focused() { return stack.isEmpty() ? null : stack.get(stack.size() - 1); }
+    /** The top of the stack is the focus. */
+    public Agent focus() { return stack.isEmpty() ? null : stack.get(stack.size() - 1); }
     public List<Agent> tasks() { return Collections.unmodifiableList(stack); }
     public String name() { return name; }
     public void setName(String name) { this.name = name; }

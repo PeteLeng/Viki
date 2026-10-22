@@ -97,7 +97,7 @@ public class NDialogCoreTest {
         DialogState chosen = turn(Act.inform("choice", "2"));
         assertEquals(1, chosen.starts().size());
         assertEquals("rear_audio", chosen.starts().get(0).flowId);
-        assertEquals(Agent.Status.RUNNING, state.focused().status());
+        assertEquals(Agent.Status.RUNNING, state.focus().status());
 
         DialogState done = complete(chosen.starts().get(0));
         assertEquals(1, state.tasks().size());
@@ -112,7 +112,7 @@ public class NDialogCoreTest {
         assertEquals(1, started.starts().size());
         assertEquals("headlights", started.starts().get(0).flowId);
         assertTrue(started.acts().isEmpty());
-        assertEquals(Agent.Status.RUNNING, state.focused().status());
+        assertEquals(Agent.Status.RUNNING, state.focus().status());
 
         complete(started.starts().get(0));
         assertTrue(state.tasks().isEmpty());
@@ -139,7 +139,7 @@ public class NDialogCoreTest {
         assertEquals(1, denied.acts().size());
         assertEquals(Act.Type.CONFIRM, denied.acts().get(0).type);
         assertEquals("headlights", denied.acts().get(0).slot("flow_id"));
-        assertNull(((FlowAgent) state.focused()).flowId());
+        assertNull(((FlowAgent) state.focus()).flowId());
         assertEquals(Act.Type.CONFIRM, state.openQuestion.expected.type);
 
         DialogState picked = turn(Act.inform("flow_id", "headlights"));

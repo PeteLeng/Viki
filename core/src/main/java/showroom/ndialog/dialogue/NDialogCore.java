@@ -45,7 +45,7 @@ public final class NDialogCore {
             }
 
             // Bind: the open question translates an answer; the stack walks nearest first;
-            // a goal act nobody binds spawns a new agent into the pending list.
+            // a goal act nobody consumes spawns a new agent into the pending list.
             Act bindable = act;
             OpenQuestion question = state.openQuestion;
             if (question != null) {
@@ -57,51 +57,52 @@ public final class NDialogCore {
             }
             List<Agent> pending = new ArrayList<Agent>();
             if (bindable != null) {
-                boolean bound = false;
+                boolean consumed = false;
                 for (int i = state.stack.size() - 1; i >= 0; i--) {
                     Agent agent = state.stack.get(i);
                     Agent.Bind result = agent.bind(bindable, state);
-                    if (result == Agent.Bind.BOUND) {
-                        agent.onBind(bindable, state);
-                        bound = true;
-                        break;
-                    }
-                    if (result == Agent.Bind.REJECTED) {
-                        bound = true;
-                        break;
-                    }
+                    if (result == Agent.Bind.NOT_MINE) continue;
+                    if (result == Agent.Bind.BOUND) agent.onBind(bindable, state);
+                    consumed = true;
+                    break;
                 }
-                if (!bound) {
-                    if (bindable.type == Act.Type.GREET) {
-                        state.say(Act.greet());
-                        if (state.stack.isEmpty()) {
-                            WelcomeAgent candidate = new WelcomeAgent();
-                            pending.add(candidate);
-                            candidate.onBind(bindable, state);
-                        }
-                    } else if (bindable.type == Act.Type.REQUEST && "flow".equals(bindable.slot("task"))) {
-                        FlowAgent candidate = new FlowAgent(catalog);
-                        if (candidate.bind(bindable, state) == Agent.Bind.BOUND) {
-                            pending.add(candidate);
-                            candidate.onBind(bindable, state);
-                        }
-                    } else {
-                        state.error("unresolved_input", "No agent wants that. Greet or request a flow first.");
-                    }
-                }
+                if (!consumed) spawn(state, bindable, pending);
             }
 
-            // The top executes; finished agents leave; pending agents enter; the focus takes initiative.
-            Agent focus = state.focused();
+            // The top executes; finished agents leave; pending agents enter and take the focus.
+            Agent focus = state.focus();
             if (focus != null && !focus.finished()) focus.execute(state);
             cleanup(state);
-            for (Agent agent : pending) state.stack.add(agent);
-            question = state.openQuestion;
-            focus = state.focused();
-            if (question != null && (focus == null || !question.ownedBy(focus))) state.openQuestion = null;
-            if (focus != null && !focus.finished() && state.openQuestion == null) focus.onFocus(state);
+            if (!pending.isEmpty()) {
+                state.stack.addAll(pending);
+                state.openQuestion = null;
+            }
+            focus = state.focus();
+            if (focus != null && state.openQuestion == null) focus.onFocus(state);
         }
         return state;
+    }
+
+    /** A goal act nobody on the stack consumes becomes a new pending agent. */
+    private void spawn(DialogState state, Act act, List<Agent> pending) {
+        if (act.type == Act.Type.GREET) {
+            state.say(Act.greet());
+            if (state.stack.isEmpty()) {
+                WelcomeAgent candidate = new WelcomeAgent();
+                pending.add(candidate);
+                candidate.onBind(act, state);
+            }
+            return;
+        }
+        if (act.type == Act.Type.REQUEST && "flow".equals(act.slot("task"))) {
+            FlowAgent candidate = new FlowAgent(catalog);
+            if (candidate.bind(act, state) == Agent.Bind.BOUND) {
+                pending.add(candidate);
+                candidate.onBind(act, state);
+            }
+            return;
+        }
+        state.error("unresolved_input", "No agent wants that. Greet or request a flow first.");
     }
 
     private void cleanup(DialogState state) {
