@@ -73,7 +73,7 @@ bash ./gradlew :cli:run --console=plain -q
 
 | Variable | Use |
 | --- | --- |
-| `NLU_OPENCODE_DIR` | Working directory; defaults to `D:/yleng/scratch/dm-master` |
+| `NLU_OPENCODE_DIR` | Working directory; omit to use the process working directory |
 | `NLU_OPENCODE_CMD` | Full command override |
 | `OPENCODE_PERMISSION` | Passed through when unset; otherwise `{"external_directory":"allow","edit":"deny"}` |
 

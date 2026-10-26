@@ -11,8 +11,7 @@ public final class Main {
         AppPort app = new FakeFlow();
         Nlu nlu;
         if ("opencode".equals(System.getenv("NLU_BACKEND"))) {
-            String dir = System.getenv("NLU_OPENCODE_DIR");
-            nlu = new OpenCodeNlu(dir == null ? "D:/yleng/scratch/dm-master" : dir, app.list());
+            nlu = new OpenCodeNlu(System.getenv("NLU_OPENCODE_DIR"), app.list());
         } else {
             nlu = text -> { throw new IOException("Set NLU_BACKEND=opencode for text input, or use /inject JSON."); };
         }

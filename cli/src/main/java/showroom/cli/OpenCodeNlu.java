@@ -90,8 +90,10 @@ public final class OpenCodeNlu implements Nlu {
             prefix.add(resolveExecutable());
         }
         prefix.add("run");
-        prefix.add("--dir");
-        prefix.add(dir);
+        if (dir != null && !dir.trim().isEmpty()) {
+            prefix.add("--dir");
+            prefix.add(dir.trim());
+        }
         return prefix;
     }
 
