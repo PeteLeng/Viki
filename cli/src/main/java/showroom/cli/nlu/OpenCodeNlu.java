@@ -1,4 +1,4 @@
-package showroom.cli;
+package showroom.cli.nlu;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -9,8 +9,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
+import showroom.cli.json.UserActJson;
 import showroom.ndialog.bridge.Feature;
-import showroom.ndialog.dialogue.Act;
+import showroom.ndialog.dialogue.UserAct;
 
 /** Stateless opencode-backed interpreter: one "opencode run" subprocess per utterance. */
 public final class OpenCodeNlu implements Nlu {
@@ -38,7 +39,7 @@ public final class OpenCodeNlu implements Nlu {
         this.timeoutSeconds = timeoutSeconds;
     }
 
-    @Override public List<Act> interpret(String text) throws IOException {
+    @Override public List<UserAct> interpret(String text) throws IOException {
         List<String> argv = command();
         argv.add(prompt + "\n\nText to parse: " + text);
         ProcessBuilder builder = new ProcessBuilder(argv);
@@ -72,7 +73,7 @@ public final class OpenCodeNlu implements Nlu {
         int start = output.indexOf('{');
         int end = output.lastIndexOf('}');
         if (start < 0 || end < start) throw new IOException("opencode returned no JSON: " + excerpt(output));
-        return JsonCodec.acts(output.substring(start, end + 1));
+        return UserActJson.parse(output.substring(start, end + 1));
     }
 
     private List<String> command() throws IOException {

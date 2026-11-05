@@ -1,18 +1,33 @@
 package showroom.cli;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSerializer;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Reader;
 import java.util.List;
+import java.util.Map;
+import showroom.cli.json.UserActJson;
+import showroom.cli.nlu.Nlu;
 import showroom.ndialog.bridge.AppPort;
 import showroom.ndialog.bridge.Feature;
-import showroom.ndialog.dialogue.Act;
 import showroom.ndialog.dialogue.DialogState;
 import showroom.ndialog.dialogue.NDialogCore;
+import showroom.ndialog.dialogue.SysAct;
 import showroom.ndialog.dialogue.Turn;
+import showroom.ndialog.dialogue.UserAct;
 
 public final class Cli {
+    private static final Gson GSON = new GsonBuilder().serializeNulls().create();
+    private static final Gson DIAGNOSTIC_GSON = GSON.newBuilder()
+            .setPrettyPrinting()
+            .registerTypeAdapter(Feature.class,
+                    (JsonSerializer<Feature>) (feature, type, context) -> new JsonPrimitive(feature.id))
+            .create();
+
     private final Nlu nlu;
     private final AppPort app;
     private final NDialogCore core;
@@ -43,13 +58,13 @@ public final class Cli {
                 out.println("debug: " + (debug ? "on" : "off"));
                 continue;
             }
-            if (line.equals("/state")) { out.println(JsonCodec.DIAGNOSTIC_GSON.toJson(state)); continue; }
+            if (line.equals("/state")) { out.println(DIAGNOSTIC_GSON.toJson(state)); continue; }
             try {
-                List<Act> acts;
-                if (line.startsWith("/inject ")) acts = JsonCodec.acts(line.substring(8));
+                List<UserAct> acts;
+                if (line.startsWith("/inject ")) acts = UserActJson.parse(line.substring(8));
                 else if (line.startsWith("/")) throw new IOException("Unknown CLI command.");
                 else acts = nlu.interpret(line);
-                if (debug) out.println("[debug] acts: " + JsonCodec.GSON.toJson(acts));
+                if (debug) out.println("[debug] acts: " + GSON.toJson(acts));
                 accept(core.handleInput(state, acts));
             } catch (IOException | IllegalArgumentException e) {
                 out.println("Input error: " + e.getMessage());
@@ -74,22 +89,25 @@ public final class Cli {
         Turn turn = core.onFlowEvent(state, flow.agentId, event);
         state = turn.state();
         out.println("flow: " + event.kind + " " + flow.flowId);
-        for (Act act : turn.utters()) render(act);
+        for (SysAct act : turn.utters()) render(act);
     }
 
-    private void render(Act act) {
-        switch (act.type) {
+    private void render(SysAct act) {
+        switch (act.type()) {
             case GREET:
                 out.println("Hello!");
                 break;
             case REQUEST:
-                out.println("name".equals(act.soleSlot()) ? "What is your name?" : "Which flow would you like?");
+                out.println(act.has("name") ? "What is your name?" : "Which flow would you like?");
                 break;
             case SELECT:
                 out.println("Which flow would you like?");
-                List<String> choices = act.values(act.soleSlot());
-                for (int i = 0; i < choices.size(); i++) {
-                    out.println((i + 1) + ". " + flowName(choices.get(i)) + " [" + choices.get(i) + "]");
+                Map<String, List<String>> offered = act.slots();
+                if (offered.size() == 1) {
+                    List<String> choices = act.values(offered.keySet().iterator().next());
+                    for (int i = 0; i < choices.size(); i++) {
+                        out.println((i + 1) + ". " + flowName(choices.get(i)) + " [" + choices.get(i) + "]");
+                    }
                 }
                 break;
             case CONFIRM:
@@ -100,10 +118,10 @@ public final class Cli {
                 if (act.slot("description") != null) out.println(act.slot("description"));
                 else if (act.slot("execution_status") != null) {
                     out.println(flowName(act.slot("flow_id")) + ": " + act.slot("execution_status"));
-                } else out.println(act.slots);
+                } else out.println(act.slots());
                 break;
             default:
-                out.println(act.slots);
+                out.println(act.slots());
                 break;
         }
     }

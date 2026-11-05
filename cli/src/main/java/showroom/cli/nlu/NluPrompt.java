@@ -1,10 +1,13 @@
-package showroom.cli;
+package showroom.cli.nlu;
 
+import com.google.gson.Gson;
 import java.util.List;
 import showroom.ndialog.bridge.Feature;
 
 /** The shared static interpretation prompt; adapters send only this plus the current text. */
 final class NluPrompt {
+    private static final Gson GSON = new Gson();
+
     private NluPrompt() { }
 
     static String prompt(List<Feature> catalog) {
@@ -19,6 +22,6 @@ final class NluPrompt {
                 + "(choice=\"2\" for 'the second one', a one-based ordinal into the offered list). "
                 + "Split a compound utterance into several acts in order. "
                 + "Preserve unknown intents rather than relabeling them; never invent state or confidence. "
-                + "Static catalog vocabulary: " + JsonCodec.GSON.toJson(catalog);
+                + "Static catalog vocabulary: " + GSON.toJson(catalog);
     }
 }

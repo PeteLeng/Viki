@@ -1,4 +1,4 @@
-package showroom.cli;
+package showroom.cli.nlu;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -18,7 +18,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import showroom.ndialog.bridge.Feature;
-import showroom.ndialog.dialogue.Act;
+import showroom.ndialog.dialogue.UserAct;
 
 public class HydraNluTest {
     private static final List<Feature> CATALOG = catalog();
@@ -57,12 +57,12 @@ public class HydraNluTest {
 
     @Test public void interpretPostsAndTranslates() throws IOException {
         HydraNlu nlu = new HydraNlu(url(), CATALOG);
-        List<Act> acts = nlu.interpret("show me the mobile theater");
+        List<UserAct> acts = nlu.interpret("show me the mobile theater");
         assertEquals(1, acts.size());
-        assertEquals(Act.Type.REQUEST, acts.get(0).type);
+        assertEquals(UserAct.Type.REQUEST, acts.get(0).type());
         assertEquals("flow", acts.get(0).slot("task"));
         assertEquals("cabin_cinema", acts.get(0).slot("flow_id"));
-        assertEquals(Double.valueOf(0.99), acts.get(0).confidence);
+        assertEquals(Double.valueOf(0.99), acts.get(0).confidence());
     }
 
     @Test public void unreachableServerReportsTheStartCommand() {
@@ -76,27 +76,27 @@ public class HydraNluTest {
     }
 
     @Test public void greetWithANameSplitsIntoTwoActs() throws IOException {
-        List<Act> acts = HydraNlu.toActs(
+        List<UserAct> acts = HydraNlu.toActs(
                 "{\"intent\":\"greet\",\"confidence\":0.96,\"slots\":"
                         + "[{\"type\":\"name\",\"text\":\"Sam\",\"start\":7,\"end\":10}]}",
                 "hi I'm Sam", CATALOG);
         assertEquals(2, acts.size());
-        assertEquals(Act.Type.GREET, acts.get(0).type);
-        assertEquals(Act.Type.INFORM, acts.get(1).type);
+        assertEquals(UserAct.Type.GREET, acts.get(0).type());
+        assertEquals(UserAct.Type.INFORM, acts.get(1).type());
         assertEquals("Sam", acts.get(1).slot("name"));
-        assertEquals(Double.valueOf(0.96), acts.get(0).confidence);
-        assertEquals(Double.valueOf(0.96), acts.get(1).confidence);
+        assertEquals(Double.valueOf(0.96), acts.get(0).confidence());
+        assertEquals(Double.valueOf(0.96), acts.get(1).confidence());
     }
 
     @Test public void bareConfirmationsMapToTheirActs() throws IOException {
-        assertEquals(Act.Type.AFFIRM, HydraNlu.toActs(
-                "{\"intent\":\"affirm\",\"confidence\":0.9,\"slots\":[]}", "yes", CATALOG).get(0).type);
-        assertEquals(Act.Type.DENY, HydraNlu.toActs(
-                "{\"intent\":\"deny\",\"confidence\":0.9,\"slots\":[]}", "no", CATALOG).get(0).type);
+        assertEquals(UserAct.Type.AFFIRM, HydraNlu.toActs(
+                "{\"intent\":\"affirm\",\"confidence\":0.9,\"slots\":[]}", "yes", CATALOG).get(0).type());
+        assertEquals(UserAct.Type.DENY, HydraNlu.toActs(
+                "{\"intent\":\"deny\",\"confidence\":0.9,\"slots\":[]}", "no", CATALOG).get(0).type());
     }
 
     @Test public void informNormalizesEachSlotInOrder() throws IOException {
-        List<Act> acts = HydraNlu.toActs(
+        List<UserAct> acts = HydraNlu.toActs(
                 "{\"intent\":\"inform\",\"confidence\":0.9,\"slots\":["
                         + "{\"type\":\"part\",\"text\":\"interior\",\"start\":0,\"end\":8}]}",
                 "interior", CATALOG);
@@ -105,7 +105,7 @@ public class HydraNluTest {
     }
 
     @Test public void informPassesUnknownFlowTextThrough() throws IOException {
-        List<Act> acts = HydraNlu.toActs(
+        List<UserAct> acts = HydraNlu.toActs(
                 "{\"intent\":\"inform\",\"confidence\":0.9,\"slots\":["
                         + "{\"type\":\"flow_ref\",\"text\":\"massage chairs\",\"start\":0,\"end\":14}]}",
                 "massage chairs", CATALOG);
@@ -114,7 +114,7 @@ public class HydraNluTest {
     }
 
     @Test public void requestFlowCarriesTheArguments() throws IOException {
-        List<Act> acts = HydraNlu.toActs(
+        List<UserAct> acts = HydraNlu.toActs(
                 "{\"intent\":\"request_flow\",\"confidence\":0.98,\"slots\":["
                         + "{\"type\":\"flow_ref\",\"text\":\"mobile theater\",\"start\":12,\"end\":26},"
                         + "{\"type\":\"part\",\"text\":\"inside\",\"start\":0,\"end\":6}]}",
@@ -126,7 +126,7 @@ public class HydraNluTest {
     }
 
     @Test public void requestFlowWithoutSlotsAsksForAGoal() throws IOException {
-        List<Act> acts = HydraNlu.toActs(
+        List<UserAct> acts = HydraNlu.toActs(
                 "{\"intent\":\"request_flow\",\"confidence\":0.9,\"slots\":[]}", "show me a demo", CATALOG);
         assertEquals(1, acts.size());
         assertEquals("flow", acts.get(0).slot("task"));
@@ -146,38 +146,44 @@ public class HydraNluTest {
     }
 
     @Test public void unknownUtteranceBindsNowhere() throws IOException {
-        List<Act> acts = HydraNlu.toActs(
+        List<UserAct> acts = HydraNlu.toActs(
                 "{\"intent\":\"UNK\",\"confidence\":0.71,\"slots\":[]}", "what is the weather", CATALOG);
         assertEquals(1, acts.size());
-        assertEquals(Act.Type.INFORM, acts.get(0).type);
+        assertEquals(UserAct.Type.INFORM, acts.get(0).type());
         assertEquals("what is the weather", acts.get(0).slot("text"));
     }
 
     @Test public void unknownIntentStringFallsBackLikeUnk() throws IOException {
-        List<Act> acts = HydraNlu.toActs(
+        List<UserAct> acts = HydraNlu.toActs(
                 "{\"intent\":\"gibberish\",\"confidence\":0.5,\"slots\":[]}", "blah", CATALOG);
         assertEquals("blah", acts.get(0).slot("text"));
     }
 
     @Test public void informWithoutUsableSlotsFallsBack() throws IOException {
-        List<Act> acts = HydraNlu.toActs(
+        List<UserAct> acts = HydraNlu.toActs(
                 "{\"intent\":\"inform\",\"confidence\":0.5,\"slots\":[]}", "hmm", CATALOG);
         assertEquals(1, acts.size());
         assertEquals("hmm", acts.get(0).slot("text"));
     }
 
     @Test public void confidenceIsOptional() throws IOException {
-        List<Act> acts = HydraNlu.toActs(
+        List<UserAct> acts = HydraNlu.toActs(
                 "{\"intent\":\"affirm\",\"slots\":[]}", "yes", CATALOG);
-        assertNull(acts.get(0).confidence);
+        assertNull(acts.get(0).confidence());
     }
 
     @Test public void malformedPredictionIsRejected() {
         try {
-            HydraNlu.toActs("{\"intent\": 42}", "x", CATALOG);
+            HydraNlu.toActs("{\"intent\": [\"greet\"]}", "x", CATALOG);
             fail("expected IOException");
         } catch (IOException e) {
             assertNotNull(e.getMessage());
         }
+    }
+
+    @Test public void nonStringIntentCoercesAndFallsBackLikeUnknown() throws IOException {
+        List<UserAct> acts = HydraNlu.toActs("{\"intent\": 42}", "x", CATALOG);
+        assertEquals(UserAct.Type.INFORM, acts.get(0).type());
+        assertEquals("x", acts.get(0).slot("text"));
     }
 }

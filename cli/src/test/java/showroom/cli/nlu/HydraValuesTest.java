@@ -1,4 +1,4 @@
-package showroom.cli;
+package showroom.cli.nlu;
 
 import static org.junit.Assert.assertEquals;
 

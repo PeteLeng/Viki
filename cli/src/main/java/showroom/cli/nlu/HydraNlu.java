@@ -1,9 +1,6 @@
-package showroom.cli;
+package showroom.cli.nlu;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.Gson;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,12 +14,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import showroom.ndialog.bridge.Feature;
-import showroom.ndialog.dialogue.Act;
+import showroom.ndialog.dialogue.UserAct;
 
 /**
- * Hydra-backed interpreter: text in, acts out. The server returns the prediction
- * verbatim (intent, confidence, slots with extracted text); this adapter owns
- * the prediction → act translation.
+ * Hydra-backed interpreter: text in, user acts out. The server returns the
+ * prediction verbatim (intent, confidence, slots with extracted text); this
+ * adapter owns the hydra dialect end-to-end — the wire schema below, the
+ * request body, and the prediction → act translation.
  */
 public final class HydraNlu implements Nlu {
     private static final String DEFAULT_URL = "http://127.0.0.1:8756";
@@ -31,6 +29,19 @@ public final class HydraNlu implements Nlu {
     private static final String START_COMMAND =
             "cd D:\\yleng\\proj\\hydra\\notebooks && uv run --locked --offline --env-file local.env"
                     + " python m3_training/serve.py --port 8756";
+    private static final Gson GSON = new Gson();
+
+    /** The prediction's wire schema, mirrored for Gson; start/end offsets are not consumed. */
+    private static final class PredictionJson {
+        String intent;
+        Double confidence;
+        List<SlotJson> slots;
+    }
+
+    private static final class SlotJson {
+        String type;
+        String text;
+    }
 
     private final String url;
     private final List<Feature> catalog;
@@ -42,8 +53,8 @@ public final class HydraNlu implements Nlu {
         probe();
     }
 
-    @Override public List<Act> interpret(String text) throws IOException {
-        String body = JsonCodec.GSON.toJson(Collections.singletonMap("text", text));
+    @Override public List<UserAct> interpret(String text) throws IOException {
+        String body = GSON.toJson(Collections.singletonMap("text", text));
         String prediction = post(body);
         if (debug) System.err.println("[debug] nlu: " + prediction);
         return toActs(prediction, text, catalog);
@@ -92,58 +103,59 @@ public final class HydraNlu implements Nlu {
     }
 
     /** The prediction → act translation; pure, so tests need no server. */
-    static List<Act> toActs(String json, String utterance, List<Feature> catalog) throws IOException {
+    static List<UserAct> toActs(String json, String utterance, List<Feature> catalog) throws IOException {
         try {
-            JsonObject root = JsonParser.parseString(json).getAsJsonObject();
-            String intent = string(root, "intent");
-            Double confidence = root.has("confidence") && root.get("confidence").isJsonPrimitive()
-                    ? root.get("confidence").getAsDouble() : null;
-            JsonArray slots = root.has("slots") && root.get("slots").isJsonArray()
-                    ? root.getAsJsonArray("slots") : new JsonArray();
+            PredictionJson prediction = GSON.fromJson(json, PredictionJson.class);
+            if (prediction == null || prediction.intent == null) {
+                throw new IllegalArgumentException("Expected a prediction with an intent.");
+            }
+            List<SlotJson> slots = prediction.slots == null ? Collections.<SlotJson>emptyList() : prediction.slots;
+            Double confidence = prediction.confidence;
 
-            List<Act> acts = new ArrayList<Act>();
-            if (intent.equals("greet")) {
-                acts.add(Act.greet().withConfidence(confidence));
+            List<UserAct> acts = new ArrayList<>();
+            if (prediction.intent.equals("greet")) {
+                acts.add(new UserAct(UserAct.Type.GREET, Collections.emptyMap(), confidence));
                 String name = firstSlotText(slots, "name");
-                if (name != null) acts.add(Act.inform("name", name).withConfidence(confidence));
-            } else if (intent.equals("affirm")) {
-                acts.add(Act.affirm().withConfidence(confidence));
-            } else if (intent.equals("deny")) {
-                acts.add(Act.deny().withConfidence(confidence));
-            } else if (intent.equals("inform")) {
-                for (JsonElement item : slots) {
-                    JsonObject slot = item.getAsJsonObject();
-                    String type = string(slot, "type");
-                    String value = value(type, string(slot, "text"), catalog);
+                if (name != null) {
+                    acts.add(new UserAct(UserAct.Type.INFORM,
+                            Collections.singletonMap("name", name), confidence));
+                }
+            } else if (prediction.intent.equals("affirm")) {
+                acts.add(new UserAct(UserAct.Type.AFFIRM, Collections.emptyMap(), confidence));
+            } else if (prediction.intent.equals("deny")) {
+                acts.add(new UserAct(UserAct.Type.DENY, Collections.emptyMap(), confidence));
+            } else if (prediction.intent.equals("inform")) {
+                for (SlotJson slot : slots) {
+                    String value = value(slot.type, slot.text, catalog);
                     if (value != null && !value.isEmpty()) {
-                        acts.add(Act.inform(ndialogSlot(type), value).withConfidence(confidence));
+                        acts.add(new UserAct(UserAct.Type.INFORM,
+                                Collections.singletonMap(ndialogSlot(slot.type), value), confidence));
                     }
                 }
-            } else if (intent.equals("request_flow")) {
-                Map<String, String> found = new LinkedHashMap<String, String>();
-                for (JsonElement item : slots) {
-                    JsonObject slot = item.getAsJsonObject();
-                    String type = string(slot, "type");
-                    String key = type.equals("flow_ref") ? "flow_id" : type;
+            } else if (prediction.intent.equals("request_flow")) {
+                Map<String, String> arguments = new LinkedHashMap<>();
+                arguments.put("task", "flow");
+                for (SlotJson slot : slots) {
+                    String key = slot.type.equals("flow_ref") ? "flow_id" : slot.type;
                     if ((key.equals("flow_id") || key.equals("part") || key.equals("theme"))
-                            && !found.containsKey(key)) {
-                        found.put(key, value(type, string(slot, "text"), catalog));
+                            && !arguments.containsKey(key)) {
+                        arguments.put(key, value(slot.type, slot.text, catalog));
                     }
                 }
-                Map<String, List<String>> arguments = new LinkedHashMap<String, List<String>>();
-                arguments.put("task", Collections.singletonList("flow"));
-                for (Map.Entry<String, String> entry : found.entrySet()) {
-                    arguments.put(entry.getKey(), Collections.singletonList(entry.getValue()));
-                }
-                acts.add(new Act(Act.Type.REQUEST, arguments).withConfidence(confidence));
-            } else if (intent.equals("request_stop") || intent.equals("request_resume")
-                    || intent.equals("request_quit")) {
-                acts.add(Act.goal(intent.substring("request_".length())).withConfidence(confidence));
+                acts.add(new UserAct(UserAct.Type.REQUEST, arguments, confidence));
+            } else if (prediction.intent.equals("request_stop") || prediction.intent.equals("request_resume")
+                    || prediction.intent.equals("request_quit")) {
+                acts.add(new UserAct(UserAct.Type.REQUEST,
+                        Collections.singletonMap("task", prediction.intent.substring("request_".length())), confidence));
             } else {
                 // UNK and any unknown intent: the raw utterance binds nowhere, and the engine says so.
-                acts.add(Act.inform("text", utterance).withConfidence(confidence));
+                acts.add(new UserAct(UserAct.Type.INFORM,
+                        Collections.singletonMap("text", utterance), confidence));
             }
-            if (acts.isEmpty()) acts.add(Act.inform("text", utterance).withConfidence(confidence));
+            if (acts.isEmpty()) {
+                acts.add(new UserAct(UserAct.Type.INFORM,
+                        Collections.singletonMap("text", utterance), confidence));
+            }
             return acts;
         } catch (RuntimeException e) {
             throw new IOException("Invalid prediction: " + e.getMessage(), e);
@@ -164,23 +176,12 @@ public final class HydraNlu implements Nlu {
         return type.equals("flow_ref") ? "flow_id" : type;
     }
 
-    private static String firstSlotText(JsonArray slots, String type) {
+    private static String firstSlotText(List<SlotJson> slots, String type) {
         String text = null;
-        for (JsonElement item : slots) {
-            JsonObject slot = item.getAsJsonObject();
-            if (string(slot, "type").equals(type)) {
-                if (text == null) text = string(slot, "text");
-            }
+        for (SlotJson slot : slots) {
+            if (type.equals(slot.type) && text == null) text = slot.text;
         }
         return text == null ? null : text.trim().isEmpty() ? null : text.trim();
-    }
-
-    private static String string(JsonObject object, String name) {
-        JsonElement value = object.get(name);
-        if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()) {
-            throw new IllegalArgumentException("Expected string field: " + name);
-        }
-        return value.getAsString();
     }
 
     private static String read(InputStream input) throws IOException {

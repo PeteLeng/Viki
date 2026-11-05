@@ -35,11 +35,11 @@ fields `predict.py` prints, no more:
 
 ## Confidence
 
-Stored on the Act, not used:
+Stored on the act at construction, not used:
 
-- `Act` gains a nullable `Double confidence` and a `withConfidence` copy
-- `HydraNlu` stamps the prediction's confidence on every act it emits — both
-  acts of the greet+name split carry it; `OpenCodeNlu` emits null
+- `UserAct`'s public constructor takes a nullable `Double confidence`
+- `HydraNlu` constructs every act it emits with the prediction's confidence —
+  both acts of the greet+name split carry it; `OpenCodeNlu` constructs without it
 - `JsonCodec` / `/inject` stays strict: confidence is set by the NLU adapter,
   not by typed input
 

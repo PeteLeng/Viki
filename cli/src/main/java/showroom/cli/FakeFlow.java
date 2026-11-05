@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import showroom.ndialog.bridge.AppPort;
+import showroom.cli.json.CatalogJson;
 import showroom.ndialog.bridge.Feature;
 
 /** Small synchronous stand-in, not a simulation of the Android flow engine. */
@@ -16,7 +17,7 @@ public final class FakeFlow implements AppPort {
     public FakeFlow() throws IOException {
         try (InputStream input = FakeFlow.class.getResourceAsStream("/catalog.json")) {
             if (input == null) throw new IOException("Missing sample catalog.");
-            features = JsonCodec.catalog(new InputStreamReader(input, StandardCharsets.UTF_8));
+            features = CatalogJson.load(new InputStreamReader(input, StandardCharsets.UTF_8));
         }
     }
 

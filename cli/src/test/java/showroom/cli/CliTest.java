@@ -9,7 +9,8 @@ import java.io.StringWriter;
 import java.util.Collections;
 import java.util.List;
 import org.junit.Test;
-import showroom.ndialog.dialogue.Act;
+import showroom.cli.nlu.Nlu;
+import showroom.ndialog.dialogue.UserAct;
 
 public class CliTest {
     @Test public void injectScriptRunsTheGreetingHandoff() throws IOException {
@@ -42,8 +43,9 @@ public class CliTest {
         PrintWriter out = new PrintWriter(sink, true);
         final boolean[] debugSeen = {false};
         Nlu nlu = new Nlu() {
-            @Override public List<Act> interpret(String text) {
-                return Collections.singletonList(Act.greet());
+            @Override public List<UserAct> interpret(String text) {
+                return Collections.singletonList(
+                        new UserAct(UserAct.Type.GREET, Collections.emptyMap(), null));
             }
             @Override public void setDebug(boolean on) { debugSeen[0] = on; }
         };

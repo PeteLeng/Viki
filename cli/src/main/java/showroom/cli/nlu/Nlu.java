@@ -1,12 +1,12 @@
-package showroom.cli;
+package showroom.cli.nlu;
 
 import java.io.IOException;
 import java.util.List;
-import showroom.ndialog.dialogue.Act;
+import showroom.ndialog.dialogue.UserAct;
 
-/** Text in, acts out; the interpreter takes no dialogue state in this slice. */
+/** Text in, user acts out; the interpreter takes no dialogue state in this slice. */
 public interface Nlu {
-    List<Act> interpret(String text) throws IOException;
+    List<UserAct> interpret(String text) throws IOException;
 
     /** Notifies adapters when the CLI's /debug toggle flips so they can print raw output. */
     default void setDebug(boolean on) { }

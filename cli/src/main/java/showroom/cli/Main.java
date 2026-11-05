@@ -4,6 +4,9 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import showroom.cli.nlu.HydraNlu;
+import showroom.cli.nlu.Nlu;
+import showroom.cli.nlu.OpenCodeNlu;
 import showroom.ndialog.bridge.AppPort;
 
 public final class Main {

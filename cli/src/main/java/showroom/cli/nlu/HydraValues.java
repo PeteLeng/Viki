@@ -1,4 +1,4 @@
-package showroom.cli;
+package showroom.cli.nlu;
 
 import java.util.LinkedHashMap;
 import java.util.List;
