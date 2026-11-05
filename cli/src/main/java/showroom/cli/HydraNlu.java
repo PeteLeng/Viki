@@ -34,6 +34,7 @@ public final class HydraNlu implements Nlu {
 
     private final String url;
     private final List<Feature> catalog;
+    private boolean debug;
 
     public HydraNlu(String url, List<Feature> catalog) throws IOException {
         this.url = url == null || url.trim().isEmpty() ? DEFAULT_URL : url.trim();
@@ -43,8 +44,12 @@ public final class HydraNlu implements Nlu {
 
     @Override public List<Act> interpret(String text) throws IOException {
         String body = JsonCodec.GSON.toJson(Collections.singletonMap("text", text));
-        return toActs(post(body), text, catalog);
+        String prediction = post(body);
+        if (debug) System.err.println("[debug] nlu: " + prediction);
+        return toActs(prediction, text, catalog);
     }
+
+    @Override public void setDebug(boolean on) { this.debug = on; }
 
     private void probe() throws IOException {
         HttpURLConnection connection = null;

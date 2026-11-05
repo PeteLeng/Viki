@@ -6,7 +6,10 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.util.Collections;
+import java.util.List;
 import org.junit.Test;
+import showroom.ndialog.dialogue.Act;
 
 public class CliTest {
     @Test public void injectScriptRunsTheGreetingHandoff() throws IOException {
@@ -31,5 +34,26 @@ public class CliTest {
         assertTrue(output.contains("flow: completed cabin_cinema"));
         assertTrue(output.contains("[fake flow] Completed Cabin Cinema"));
         assertTrue(output.contains("\"Sam\""));
+    }
+
+    @Test public void debugTogglePrintsActsAndReachesTheNlu() throws IOException {
+        FakeFlow app = new FakeFlow();
+        StringWriter sink = new StringWriter();
+        PrintWriter out = new PrintWriter(sink, true);
+        final boolean[] debugSeen = {false};
+        Nlu nlu = new Nlu() {
+            @Override public List<Act> interpret(String text) {
+                return Collections.singletonList(Act.greet());
+            }
+            @Override public void setDebug(boolean on) { debugSeen[0] = on; }
+        };
+        new Cli(nlu, app, out).run(new StringReader(
+                "/debug\n" + "hi there\n" + "/debug\n" + "/quit\n"));
+        String output = sink.toString();
+        assertTrue(output.contains("debug: on"));
+        assertTrue(output.contains("[debug] acts: "));
+        assertTrue(output.contains("\"type\":\"GREET\""));
+        assertTrue(output.contains("debug: off"));
+        assertTrue(!debugSeen[0]);
     }
 }

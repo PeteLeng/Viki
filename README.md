@@ -62,6 +62,7 @@ requests, which the host dispatches after accepting the turn.
 | --- | --- |
 | Normal text | Send to the NLU |
 | `/inject JSON` | Bypass the NLU with acts |
+| `/debug` | Toggle tracing: each input's translated acts (stdout) and the raw hydra prediction (stderr) |
 | `/state` | Print the agent stack, open question, session name |
 | `/quit` | Exit |
 

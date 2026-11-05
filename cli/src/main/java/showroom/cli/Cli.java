@@ -19,6 +19,7 @@ public final class Cli {
     private final List<Feature> catalog;
     private final PrintWriter out;
     private DialogState state = new DialogState();
+    private boolean debug;
 
     public Cli(Nlu nlu, AppPort app, PrintWriter out) {
         this.nlu = nlu;
@@ -29,19 +30,26 @@ public final class Cli {
     }
 
     public void run(Reader input) throws IOException {
-        out.println("ndialog CLI. text, /inject JSON, /state, /quit");
+        out.println("ndialog CLI. text, /inject JSON, /state, /debug, /quit");
         BufferedReader reader = new BufferedReader(input);
         String line;
         while ((line = reader.readLine()) != null) {
             line = line.trim();
             if (line.isEmpty()) continue;
             if (line.equals("/quit")) break;
+            if (line.equals("/debug")) {
+                debug = !debug;
+                nlu.setDebug(debug);
+                out.println("debug: " + (debug ? "on" : "off"));
+                continue;
+            }
             if (line.equals("/state")) { out.println(JsonCodec.DIAGNOSTIC_GSON.toJson(state)); continue; }
             try {
                 List<Act> acts;
                 if (line.startsWith("/inject ")) acts = JsonCodec.acts(line.substring(8));
                 else if (line.startsWith("/")) throw new IOException("Unknown CLI command.");
                 else acts = nlu.interpret(line);
+                if (debug) out.println("[debug] acts: " + JsonCodec.GSON.toJson(acts));
                 accept(core.handleInput(state, acts));
             } catch (IOException | IllegalArgumentException e) {
                 out.println("Input error: " + e.getMessage());
