@@ -80,4 +80,32 @@ bash ./gradlew :cli:run --console=plain -q
 
 Each utterance spawns one stateless `opencode run` subprocess with the static
 prompt plus the current text — no conversation memory. Non-zero exit, timeout
+
+## Optional hydra interpreter
+
+Start the NLU server (one terminal, loads the checkpoint once):
+
+```sh
+cd /d/yleng/proj/hydra/notebooks
+uv run --locked --offline --env-file local.env python m3_training/serve.py --port 8756
+```
+
+Run the CLI (another terminal):
+
+```sh
+export NLU_BACKEND=hydra
+bash ./gradlew :cli:run --console=plain -q
+```
+
+| Variable | Use |
+| --- | --- |
+| `NLU_URL` | Server base URL; defaults to `http://127.0.0.1:8756` |
+
+The server returns the prediction verbatim (intent, confidence, slots with the
+extracted text); the CLI-side adapter translates it into acts. Known aliases
+canonicalize (catalog names and aliases, `interior` → `inside`, `families` →
+`family`, offered-list ordinals → numbers); unrecognized text passes through and
+the engine's validation answers the user. Input acts carry the prediction's
+confidence; the engine does not use it. The mapping contract lives in
+`tmp/hydra-integration/mapping.md`.
 (120 s), or JSON-less reply is an input error that does not end the chat.

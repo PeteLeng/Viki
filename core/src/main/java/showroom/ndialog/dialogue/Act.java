@@ -9,15 +9,19 @@ import java.util.Map;
 /**
  * One unit of language meaning, shared by input and output. Slot values are lists:
  * a singleton is a value, an empty list is unset, and multiple values are offered
- * choices (system questions only; input carries singletons).
+ * choices (system questions only; input carries singletons). An NLU adapter may
+ * attach a confidence to input acts; the engine does not use it.
  */
 public final class Act {
     public enum Type { GREET, REQUEST, INFORM, CONFIRM, AFFIRM, DENY, SELECT }
 
     public final Type type;
     public final Map<String, List<String>> slots;
+    public final Double confidence;
 
-    public Act(Type type, Map<String, List<String>> slots) {
+    public Act(Type type, Map<String, List<String>> slots) { this(type, slots, null); }
+
+    Act(Type type, Map<String, List<String>> slots, Double confidence) {
         if (type == null) throw new IllegalArgumentException("An act needs a type.");
         Map<String, List<String>> normalized = new LinkedHashMap<String, List<String>>();
         for (Map.Entry<String, List<String>> slot : slots.entrySet()) {
@@ -37,6 +41,7 @@ public final class Act {
         }
         this.type = type;
         this.slots = Collections.unmodifiableMap(normalized);
+        this.confidence = confidence;
     }
 
     /** The single value of a slot; null when the slot is absent or unset. */
@@ -54,6 +59,9 @@ public final class Act {
     }
 
     public boolean has(String name) { return slots.containsKey(name); }
+
+    /** A copy carrying the NLU confidence; the engine does not use it. */
+    public Act withConfidence(Double value) { return new Act(type, slots, value); }
 
     /** The one slot name of a question or selection act. */
     public String soleSlot() {

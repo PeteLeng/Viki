@@ -12,8 +12,10 @@ public final class Main {
         Nlu nlu;
         if ("opencode".equals(System.getenv("NLU_BACKEND"))) {
             nlu = new OpenCodeNlu(System.getenv("NLU_OPENCODE_DIR"), app.list());
+        } else if ("hydra".equals(System.getenv("NLU_BACKEND"))) {
+            nlu = new HydraNlu(System.getenv("NLU_URL"), app.list());
         } else {
-            nlu = text -> { throw new IOException("Set NLU_BACKEND=opencode for text input, or use /inject JSON."); };
+            nlu = text -> { throw new IOException("Set NLU_BACKEND=opencode or hydra for text input, or use /inject JSON."); };
         }
         PrintWriter console = new PrintWriter(System.out, true);
         new Cli(nlu, app, console).run(new InputStreamReader(System.in, StandardCharsets.UTF_8));
