@@ -37,10 +37,12 @@ Or start a known flow directly:
 
 ## Vocabulary
 
-One representation, `Act`, carries language meaning in both directions. Slot
-values are lists: a singleton is a value, an empty list is unset, and multiple
-values are offered choices. Input carries singletons only; lists are the
-system's question vocabulary.
+Two vocabularies, one seam. `UserAct` is what the interpreter hands the engine —
+flat slots, one value each, and a null value means the slot is being unset.
+`SysAct` is what the engine speaks — the question family carries one slot whose
+value list is the cardinality (an empty list asks, a singleton proposes, a list
+offers), and a question is born owned by the agent that asks; `translate` turns
+an answer into the bindable form.
 
 | Input act | Use |
 | --- | --- |
@@ -50,11 +52,11 @@ system's question vocabulary.
 | `affirm` / `deny` | Answer the open confirmation; a deny clears the proposed value |
 | `request` with other `task` (`stop`, `resume`, `quit`, `help`, `list`) | Global controls — reported unsupported in this slice |
 
-System output uses the same acts: `request(flow_id=[])` asks, 
-`select(flow_id=[a,b,c])` offers, `confirm(flow_id=[x])` or `confirm(task=[flow])`
-proposes, and `inform` states. `handleInput` returns a `Turn` — the next state
-plus the ordered output; `Turn.outputs()` interleaves utterances and flow start
-requests, which the host dispatches after accepting the turn.
+System output: `request(flow_id=[])` asks, `select(flow_id=[a,b,c])` offers,
+`confirm(flow_id=[x])` or `confirm(task=[flow])` proposes, and `inform` states
+descriptions, errors, and flow events. `handleInput` returns a `Turn` — the next
+state plus the ordered output; `Turn.outputs()` interleaves utterances and flow
+start requests, which the host dispatches after accepting the turn.
 
 ## CLI
 
@@ -106,10 +108,10 @@ bash ./gradlew :cli:run --console=plain -q
 | `NLU_URL` | Server base URL; defaults to `http://127.0.0.1:8756` |
 
 The server returns the prediction verbatim (intent, confidence, slots with the
-extracted text); the CLI-side adapter translates it into acts. Known aliases
-canonicalize (catalog names and aliases, `interior` → `inside`, `families` →
-`family`, offered-list ordinals → numbers); unrecognized text passes through and
-the engine's validation answers the user. Input acts carry the prediction's
+extracted text); the CLI-side adapter translates it into user acts. Known
+aliases canonicalize (catalog names and aliases, `interior` → `inside`,
+`families` → `family`, offered-list ordinals → numbers); unrecognized text
+passes through and the engine's validation answers the user. Input acts carry the prediction's
 confidence; the engine does not use it. The mapping contract lives in
 `tmp/hydra-integration/mapping.md`.
 (120 s), or JSON-less reply is an input error that does not end the chat.

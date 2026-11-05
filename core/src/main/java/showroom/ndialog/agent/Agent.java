@@ -1,7 +1,7 @@
 package showroom.ndialog.agent;
 
-import showroom.ndialog.dialogue.Act;
 import showroom.ndialog.dialogue.DialogState;
+import showroom.ndialog.dialogue.UserAct;
 
 import java.util.UUID;
 
@@ -21,10 +21,10 @@ public abstract class Agent {
      * Absorb an act's values. NOT_MINE leaves the walk untouched; BOUND applies
      * values (an error act is emitted for REJECTED, which stops the walk without values).
      */
-    public abstract Bind bind(Act act, DialogState state);
+    public abstract Bind bind(UserAct act, DialogState state);
 
     /** Called after this agent's successful bind (or spawn); react without stack side effects beyond own status. */
-    public void onBind(Act act, DialogState state) { }
+    public void onBind(UserAct act, DialogState state) { }
 
     /** Perform the application side effect when ready; request starts through the state. */
     public abstract void execute(DialogState state);

@@ -14,22 +14,22 @@ public final class Turn {
 
     Turn(DialogState state, List<Output> outputs) {
         this.state = state;
-        this.outputs = Collections.unmodifiableList(new ArrayList<Output>(outputs));
+        this.outputs = Collections.unmodifiableList(new ArrayList<>(outputs));
     }
 
     public DialogState state() { return state; }
     public List<Output> outputs() { return outputs; }
 
-    /** The uttered acts, in order. */
-    public List<Act> utters() {
-        List<Act> acts = new ArrayList<Act>();
+    /** The uttered system acts, in order. */
+    public List<SysAct> utters() {
+        List<SysAct> acts = new ArrayList<>();
         for (Output output : outputs) if (output.isUtter()) acts.add(output.act);
         return acts;
     }
 
     /** The flow start requests, in order. */
     public List<Output> flows() {
-        List<Output> flows = new ArrayList<Output>();
+        List<Output> flows = new ArrayList<>();
         for (Output output : outputs) if (!output.isUtter()) flows.add(output);
         return flows;
     }
@@ -39,18 +39,18 @@ public final class Turn {
         public enum Kind { UTTER, FLOW }
 
         public final Kind kind;
-        public final Act act;
+        public final SysAct act;
         public final String agentId;
         public final String flowId;
 
-        private Output(Kind kind, Act act, String agentId, String flowId) {
+        private Output(Kind kind, SysAct act, String agentId, String flowId) {
             this.kind = kind;
             this.act = act;
             this.agentId = agentId;
             this.flowId = flowId;
         }
 
-        static Output utter(Act act) { return new Output(Kind.UTTER, act, null, null); }
+        static Output utter(SysAct act) { return new Output(Kind.UTTER, act, null, null); }
         static Output flow(String agentId, String flowId) { return new Output(Kind.FLOW, null, agentId, flowId); }
 
         public boolean isUtter() { return kind == Kind.UTTER; }

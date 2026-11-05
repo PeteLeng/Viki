@@ -15,10 +15,10 @@ import java.util.Map;
  * starts with fresh output.
  */
 public final class DialogState {
-    final List<Agent> stack = new ArrayList<Agent>();
-    Question openQuestion;
+    final List<Agent> stack = new ArrayList<>();
+    SysAct openQuestion;
     String name;
-    final List<Turn.Output> outputs = new ArrayList<Turn.Output>();
+    final List<Turn.Output> outputs = new ArrayList<>();
 
     /** The top of the stack is the focus. */
     public Agent focus() { return stack.isEmpty() ? null : stack.get(stack.size() - 1); }
@@ -33,16 +33,16 @@ public final class DialogState {
     public void setName(String name) { this.name = name; }
 
     /** A question is stored and asked in one step; an agent cannot set one silently. */
-    public void ask(Question question) {
+    public void ask(SysAct question) {
         openQuestion = question;
-        utter(question.expected);
+        utter(question);
     }
 
     public void dropQuestion(Agent owner) {
         if (openQuestion != null && openQuestion.ownedBy(owner)) openQuestion = null;
     }
 
-    public void utter(Act act) { outputs.add(Turn.Output.utter(act)); }
+    public void utter(SysAct act) { outputs.add(Turn.Output.utter(act)); }
 
     public void flow(Agent owner, String flowId) {
         outputs.add(Turn.Output.flow(owner.id(), flowId));
@@ -50,10 +50,10 @@ public final class DialogState {
 
     /** Unresolved input is an ordinary outcome, not an exception. */
     public void error(String code, String description) {
-        Map<String, String> slots = new LinkedHashMap<String, String>();
+        Map<String, String> slots = new LinkedHashMap<>();
         slots.put("error", code);
         slots.put("description", description);
-        utter(Act.inform(slots));
+        utter(SysAct.inform(slots));
     }
 
     /** A snapshot without the previous turn's output; agents are deep-copied. */
@@ -67,7 +67,7 @@ public final class DialogState {
 
     /** The turn's output; the buffer is empty afterwards. */
     List<Turn.Output> drain() {
-        List<Turn.Output> drained = new ArrayList<Turn.Output>(outputs);
+        List<Turn.Output> drained = new ArrayList<>(outputs);
         outputs.clear();
         return drained;
     }

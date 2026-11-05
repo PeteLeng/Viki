@@ -23,16 +23,22 @@ handleInput(state, acts):
 
 ## The pieces
 
-- **`Act`** — the one representation of language meaning, both directions.
-  Slot values are lists: a singleton is a value, an empty list is unset, and
-  multiple values are offered choices. Input carries singletons only; the
-  question family uses cardinality as meaning — `request(flow_id=[])` asks,
-  `confirm(flow_id=[X])` proposes, `select(flow_id=[A,B,C])` offers.
-- **`DialogState`** — the single shared object: agent stack (top is focus), the
-  one `openQuestion`, session `name`, and the turn's output buffer. `ask()`
-  stores and speaks a question in one step; the working copy is the turn's
-  scratchpad — the engine drains it into a `Turn` at the boundary, and `copy()`
-  starts with fresh output.
+- **`UserAct`** — what the interpreter hands the engine. Flat slots, one value
+  each; a null value means the slot is being unset (the deny translation's
+  target). No shared supertype with the system side: no code path handles both
+  families generically.
+- **`SysAct`** — what the engine speaks. The question family carries one slot
+  whose value list is the cardinality — `request(flow_id=[])` asks,
+  `confirm(flow_id=[X])` proposes, `select(flow_id=[A,B,C])` offers — and a
+  question is born owned by the agent that asks. `translate` returns the
+  bindable user act or null (a Rust Option, no wrapper):
+  `confirm(flow_id=[X])` + `affirm` becomes `inform(flow_id=X)`;
+  `select(flow_id=[A,B])` + `inform(choice=2)` becomes `inform(flow_id=B)`;
+  a goal offer + `affirm` becomes `request(task=flow)` which spawns; a `deny`
+  becomes `inform(flow_id=null)` — the value goes back to unset, and the agent
+  decides what follows. A null answer falls to ordinary routing, so a bare
+  `affirm` under a selection is simply unresolved. Informs carry any
+  number of single values (descriptions, errors, flow events) and no owner.
 - **`Agent`** — a conversational goal. Subclasses own their fields and override
   `bind` / `execute` / `onFocus` / `onBind`. `bind` returns `NOT_MINE` (walk
   continues), `BOUND` (values applied — a null value clears), or `REJECTED`
@@ -40,15 +46,12 @@ handleInput(state, acts):
   successful bind without stack side effects beyond own status; `onFocus`
   decides what a cleared or updated value means — including starting execution
   when a freshly spawned agent is ready.
-- **`Question`** — pure bookkeeping: the owner plus the expected act.
-  `translate` returns the bindable act or null (a Rust Option, no wrapper):
-  `confirm(flow_id=[X])` + `affirm` becomes `inform(flow_id=X)`; 
-  `select(flow_id=[A,B])` + `inform(choice=2)` becomes `inform(flow_id=B)`;
-  a goal offer + `affirm` becomes `request(task=flow)` which spawns; a `deny`
-  becomes `inform(flow_id=[])` — the value goes back to unset, and the agent
-  decides what follows. A null answer falls to ordinary routing, so a bare
-  `affirm` under a selection is simply unresolved. It always belongs to the
-  focus; refocus clears it when focus moves.
+- **`DialogState`** — the single shared object: agent stack (top is focus), the
+  one `openQuestion` (a `SysAct`), session `name`, and the turn's output
+  buffer. `ask()` stores and speaks a question in one step; the working copy is
+  the turn's scratchpad — the engine drains it into a `Turn` at the boundary,
+  and `copy()` starts with fresh output. The open question always belongs to
+  the focus; refocus clears it when focus moves.
 
 ## Invariants and disciplines
 

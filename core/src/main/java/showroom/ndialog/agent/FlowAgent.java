@@ -1,9 +1,9 @@
 package showroom.ndialog.agent;
 
 import showroom.ndialog.bridge.Feature;
-import showroom.ndialog.dialogue.Act;
 import showroom.ndialog.dialogue.DialogState;
-import showroom.ndialog.dialogue.Question;
+import showroom.ndialog.dialogue.SysAct;
+import showroom.ndialog.dialogue.UserAct;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -39,15 +39,15 @@ public final class FlowAgent extends Agent {
      * A goal request is always this agent's; an inform is this agent's when it carries
      * flow_id/part/theme. Other slots belong to other agents.
      */
-    @Override public Bind bind(Act act, DialogState state) {
-        boolean goal = act.type == Act.Type.REQUEST && "flow".equals(act.slot("task"));
-        if (!goal && act.type != Act.Type.INFORM) return Bind.NOT_MINE;
-        Map<String, String> supplied = new LinkedHashMap<String, String>();
-        for (Map.Entry<String, List<String>> entry : act.slots.entrySet()) {
+    @Override public Bind bind(UserAct act, DialogState state) {
+        boolean goal = act.type() == UserAct.Type.REQUEST && "flow".equals(act.slot("task"));
+        if (!goal && act.type() != UserAct.Type.INFORM) return Bind.NOT_MINE;
+        Map<String, String> supplied = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : act.slots().entrySet()) {
             String key = entry.getKey();
             if (key.equals("task")) continue;
             if (key.equals("flow_id") || key.equals("part") || key.equals("theme")) {
-                supplied.put(key, act.slot(key));
+                supplied.put(key, entry.getValue());
             } else if (goal) {
                 state.error("unsupported_input", "Unsupported flow argument: " + key);
                 return Bind.REJECTED;
@@ -106,9 +106,9 @@ public final class FlowAgent extends Agent {
         if (matches.isEmpty()) {
             state.error("no_matches", "No flows match. Try another part or theme.");
         } else if (matches.size() == 1) {
-            state.ask(Question.confirmValue(this, "flow_id", matches.get(0)));
+            state.ask(SysAct.confirm(this, "flow_id", matches.get(0)));
         } else {
-            state.ask(Question.selectValue(this, "flow_id", matches));
+            state.ask(SysAct.select(this, "flow_id", matches));
         }
     }
 

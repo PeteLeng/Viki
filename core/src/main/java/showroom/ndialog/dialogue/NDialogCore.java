@@ -22,13 +22,13 @@ import java.util.Set;
  * notifications bypass this pipeline.
  */
 public final class NDialogCore {
-    private static final Set<String> GLOBAL_TASKS = new HashSet<String>(
+    private static final Set<String> GLOBAL_TASKS = new HashSet<>(
             Arrays.asList("stop", "resume", "quit", "help", "list"));
 
     private final List<Feature> catalog;
 
     public NDialogCore(List<Feature> catalog) {
-        Set<String> ids = new HashSet<String>();
+        Set<String> ids = new HashSet<>();
         for (Feature feature : catalog) {
             if (!ids.add(feature.id)) throw new IllegalArgumentException("Duplicate flow ID: " + feature.id);
         }
@@ -36,25 +36,25 @@ public final class NDialogCore {
     }
 
     /** Acts are nonempty and validated upstream. Returns the turn; its outputs are this call's result. */
-    public Turn handleInput(DialogState before, List<Act> acts) {
+    public Turn handleInput(DialogState before, List<UserAct> acts) {
         DialogState state = before.copy();
-        for (Act act : acts) {
-            if (act.type == Act.Type.REQUEST && GLOBAL_TASKS.contains(act.slot("task"))) {
+        for (UserAct act : acts) {
+            if (act.type() == UserAct.Type.REQUEST && GLOBAL_TASKS.contains(act.slot("task"))) {
                 state.error("unsupported_input", "The '" + act.slot("task") + "' control is not implemented in this slice.");
                 continue;
             }
 
             // Bind: the open question translates an answer; the stack walks nearest first;
             // a goal act nobody consumes spawns a new agent into the pending list.
-            Question question = state.openQuestion;
+            SysAct question = state.openQuestion;
             if (question != null) {
-                Act translated = question.translate(act);
+                UserAct translated = question.translate(act);
                 if (translated != null) {
                     state.openQuestion = null;
                     act = translated;
                 }
             }
-            List<Agent> pending = new ArrayList<Agent>();
+            List<Agent> pending = new ArrayList<>();
             boolean consumed = false;
             for (int i = state.stack.size() - 1; i >= 0; i--) {
                 Agent agent = state.stack.get(i);
@@ -81,9 +81,9 @@ public final class NDialogCore {
     }
 
     /** A goal act nobody on the stack consumes becomes a new pending agent. */
-    private void spawn(DialogState state, Act act, List<Agent> pending) {
-        if (act.type == Act.Type.GREET) {
-            state.utter(Act.greet());
+    private void spawn(DialogState state, UserAct act, List<Agent> pending) {
+        if (act.type() == UserAct.Type.GREET) {
+            state.utter(SysAct.greet());
             if (state.stack.isEmpty()) {
                 WelcomeAgent candidate = new WelcomeAgent();
                 pending.add(candidate);
@@ -91,7 +91,7 @@ public final class NDialogCore {
             }
             return;
         }
-        if (act.type == Act.Type.REQUEST && "flow".equals(act.slot("task"))) {
+        if (act.type() == UserAct.Type.REQUEST && "flow".equals(act.slot("task"))) {
             FlowAgent candidate = new FlowAgent(catalog);
             if (candidate.bind(act, state) == Agent.Bind.BOUND) {
                 pending.add(candidate);
@@ -119,13 +119,13 @@ public final class NDialogCore {
         if (owner != null && owner.running()) {
             if (event.kind.equals("completed")) owner.complete();
             else if (event.kind.equals("failed")) owner.fail();
-            Map<String, String> slots = new LinkedHashMap<String, String>();
+            Map<String, String> slots = new LinkedHashMap<>();
             if (event.kind.equals("running") || event.kind.equals("completed") || event.kind.equals("failed")) {
                 slots.put("flow_id", flowIdOf(owner));
                 slots.put("execution_status", event.kind);
             }
             if (event.text != null && !event.text.trim().isEmpty()) slots.put("description", event.text);
-            if (!slots.isEmpty()) working.utter(Act.inform(slots));
+            if (!slots.isEmpty()) working.utter(SysAct.inform(slots));
         }
         cleanup(working);
         return new Turn(working, working.drain());
