@@ -9,6 +9,7 @@ import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializer;
 import java.io.IOException;
+import java.io.Reader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -66,6 +67,18 @@ final class JsonCodec {
         } else if (type == Act.Type.INFORM) {
             if (slots.size() != 1) throw new IllegalArgumentException("An inform carries one named value.");
         }
+    }
+
+    static List<Feature> catalog(Reader reader) throws IOException {
+        StringBuilder json = new StringBuilder();
+        char[] buffer = new char[4096];
+        int count;
+        try {
+            while ((count = reader.read(buffer)) != -1) json.append(buffer, 0, count);
+        } catch (IOException e) {
+            throw new IOException("Could not read the catalog: " + e.getMessage(), e);
+        }
+        return catalog(json.toString());
     }
 
     static List<Feature> catalog(String json) throws IOException {

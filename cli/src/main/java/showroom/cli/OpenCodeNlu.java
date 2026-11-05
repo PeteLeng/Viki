@@ -141,7 +141,7 @@ public final class OpenCodeNlu implements Nlu {
         try { thread.join(1000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
     }
 
-    static String read(InputStream input) throws IOException {
+    private static String read(InputStream input) throws IOException {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         byte[] buffer = new byte[4096];
         int count;
