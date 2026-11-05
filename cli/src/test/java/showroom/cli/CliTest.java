@@ -19,7 +19,6 @@ public class CliTest {
                         + "/inject {\"acts\":[{\"type\":\"inform\",\"slots\":{\"name\":\"Sam\"}}]}\n"
                         + "/inject {\"acts\":[{\"type\":\"affirm\"}]}\n"
                         + "/inject {\"acts\":[{\"type\":\"inform\",\"slots\":{\"theme\":\"family\"}}]}\n"
-                        + "/inject {\"acts\":[{\"type\":\"inform\",\"slots\":{\"part\":\"back-seat\"}}]}\n"
                         + "/inject {\"acts\":[{\"type\":\"inform\",\"slots\":{\"choice\":\"2\"}}]}\n"
                         + "/state\n"
                         + "/quit\n"));
@@ -28,9 +27,9 @@ public class CliTest {
         assertTrue(output.contains("What is your name?"));
         assertTrue(output.contains("Would you like to see a demo?"));
         assertTrue(output.contains("Which flow would you like?"));
-        assertTrue(output.contains("Requesting flow: rear_audio"));
-        assertTrue(output.contains("flow: completed rear_audio"));
-        assertTrue(output.contains("[fake flow] Completed Rear audio"));
+        assertTrue(output.contains("Requesting flow: cabin_cinema"));
+        assertTrue(output.contains("flow: completed cabin_cinema"));
+        assertTrue(output.contains("[fake flow] Completed Cabin Cinema"));
         assertTrue(output.contains("\"Sam\""));
     }
 }
