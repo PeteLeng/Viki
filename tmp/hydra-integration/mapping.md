@@ -19,8 +19,8 @@ fields `predict.py` prints, no more:
 - No act knowledge, no slot normalization, no intent renaming on the server
   side. The prediction → Act translation lives engine-side, in the ndialog
   adapter.
-- `--checkpoint` accepted exactly as `predict.py` accepts it; default is the
-  latest completed run.
+- `--checkpoint` accepted exactly as `predict.py` accepts it; default is
+  `models/showroom-zh/best.pt` (the Chinese showroom model).
 
 ## Adapter shape
 

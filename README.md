@@ -90,6 +90,9 @@ cd /d/yleng/proj/hydra/notebooks
 uv run --locked --offline --env-file local.env python m3_training/serve.py --port 8756
 ```
 
+The server defaults to the Chinese showroom model (`models/showroom-zh`);
+pass `--checkpoint` to serve another.
+
 Run the CLI (another terminal):
 
 ```sh
