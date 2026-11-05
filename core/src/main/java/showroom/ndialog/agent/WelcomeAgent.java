@@ -2,7 +2,7 @@ package showroom.ndialog.agent;
 
 import showroom.ndialog.dialogue.Act;
 import showroom.ndialog.dialogue.DialogState;
-import showroom.ndialog.dialogue.OpenQuestion;
+import showroom.ndialog.dialogue.Question;
 
 /** Greets, collects the session name, offers the flow goal, then stays below flow for name corrections. */
 public final class WelcomeAgent extends Agent {
@@ -26,15 +26,15 @@ public final class WelcomeAgent extends Agent {
 
     @Override public void onBind(Act act, DialogState state) {
         if (!declined) return;
-        state.say(Act.inform("description", "Okay. Ask me to play a flow whenever you like."));
+        state.utter(Act.inform("description", "Okay. Ask me to play a flow whenever you like."));
         complete();
     }
 
     @Override public void execute(DialogState state) { }
 
     @Override public void onFocus(DialogState state) {
-        if (state.name() == null) state.ask(OpenQuestion.requestValue(this, "name"));
-        else state.ask(OpenQuestion.confirmGoal(this, "flow"));
+        if (state.name() == null) state.ask(Question.requestValue(this, "name"));
+        else state.ask(Question.confirmGoal(this, "flow"));
     }
 
     @Override public Agent copy() {

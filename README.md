@@ -1,4 +1,4 @@
-# ndialog — agent-stack dialogue engine
+e ndialog — agent-stack dialogue engine
 
 A minimal dialogue core where conversational goals are agents on a stack. See
 [DESIGN.md](DESIGN.md) for the pipeline and invariants. This slice implements
@@ -52,8 +52,9 @@ system's question vocabulary.
 
 System output uses the same acts: `request(flow_id=[])` asks, 
 `select(flow_id=[a,b,c])` offers, `confirm(flow_id=[x])` or `confirm(task=[flow])`
-proposes, and `inform` states. Application work is requested through
-`state.starts()`, which the host dispatches after accepting the returned state.
+proposes, and `inform` states. `handleInput` returns a `Turn` — the next state
+plus the ordered output; `Turn.outputs()` interleaves utterances and flow start
+requests, which the host dispatches after accepting the turn.
 
 ## CLI
 

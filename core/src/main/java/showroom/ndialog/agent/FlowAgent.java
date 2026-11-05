@@ -3,7 +3,7 @@ package showroom.ndialog.agent;
 import showroom.ndialog.bridge.Feature;
 import showroom.ndialog.dialogue.Act;
 import showroom.ndialog.dialogue.DialogState;
-import showroom.ndialog.dialogue.OpenQuestion;
+import showroom.ndialog.dialogue.Question;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -83,14 +83,14 @@ public final class FlowAgent extends Agent {
         flowId = nextFlow;
         part = nextPart;
         theme = nextTheme;
-        if (supplied.containsKey("flow_id") || filtersChanged) state.clearQuestion(this);
+        if (supplied.containsKey("flow_id") || filtersChanged) state.dropQuestion(this);
         return Bind.BOUND;
     }
 
     @Override public void execute(DialogState state) {
         if (flowId == null || status != Status.IDLE) return;
         status = Status.RUNNING;
-        state.requestStart(this, flowId);
+        state.flow(this, flowId);
     }
 
     @Override public void onFocus(DialogState state) {
@@ -106,9 +106,9 @@ public final class FlowAgent extends Agent {
         if (matches.isEmpty()) {
             state.error("no_matches", "No flows match. Try another part or theme.");
         } else if (matches.size() == 1) {
-            state.ask(OpenQuestion.confirmValue(this, "flow_id", matches.get(0)));
+            state.ask(Question.confirmValue(this, "flow_id", matches.get(0)));
         } else {
-            state.ask(OpenQuestion.selectValue(this, "flow_id", matches));
+            state.ask(Question.selectValue(this, "flow_id", matches));
         }
     }
 

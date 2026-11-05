@@ -51,18 +51,20 @@ public class NDialogCoreTest {
         return new Act(Act.Type.REQUEST, slots);
     }
 
-    private DialogState turn(Act act) {
-        state = core.handleInput(state, Collections.singletonList(act));
-        return state;
+    private Turn turn(Act act) {
+        Turn result = core.handleInput(state, Collections.singletonList(act));
+        state = result.state();
+        return result;
     }
 
-    private DialogState complete(DialogState.Start start) {
-        state = core.onFlowEvent(state, start.agentId, new AppPort.Event("completed", "done"));
-        return state;
+    private Turn complete(Turn.Output flow) {
+        Turn result = core.onFlowEvent(state, flow.agentId, new AppPort.Event("completed", "done"));
+        state = result.state();
+        return result;
     }
 
-    private Act lastInform(DialogState after) {
-        List<Act> acts = after.acts();
+    private Act lastInform(Turn after) {
+        List<Act> acts = after.utters();
         for (int i = acts.size() - 1; i >= 0; i--) {
             if (acts.get(i).type == Act.Type.INFORM) return acts.get(i);
         }
@@ -70,18 +72,18 @@ public class NDialogCoreTest {
     }
 
     @Test public void greetingHandoffStartsSecondOfferedFlow() {
-        DialogState greeting = turn(Act.greet());
-        assertEquals(2, greeting.acts().size());
-        assertEquals(Act.Type.GREET, greeting.acts().get(0).type);
-        assertEquals(Act.Type.REQUEST, greeting.acts().get(1).type);
-        assertEquals("name", greeting.acts().get(1).soleSlot());
+        Turn greeting = turn(Act.greet());
+        assertEquals(2, greeting.utters().size());
+        assertEquals(Act.Type.GREET, greeting.utters().get(0).type);
+        assertEquals(Act.Type.REQUEST, greeting.utters().get(1).type);
+        assertEquals("name", greeting.utters().get(1).soleSlot());
         assertEquals(Act.Type.REQUEST, state.openQuestion.expected.type);
 
-        DialogState named = turn(Act.inform("name", "Sam"));
+        Turn named = turn(Act.inform("name", "Sam"));
         assertEquals("Sam", state.name());
-        assertEquals(1, named.acts().size());
-        assertEquals(Act.Type.CONFIRM, named.acts().get(0).type);
-        assertEquals("flow", named.acts().get(0).slot("task"));
+        assertEquals(1, named.utters().size());
+        assertEquals(Act.Type.CONFIRM, named.utters().get(0).type);
+        assertEquals("flow", named.utters().get(0).slot("task"));
 
         turn(Act.affirm());
         assertEquals(2, state.tasks().size());
@@ -94,12 +96,12 @@ public class NDialogCoreTest {
         assertEquals(Arrays.asList("rear_displays", "rear_audio"),
                 state.openQuestion.expected.values("flow_id"));
 
-        DialogState chosen = turn(Act.inform("choice", "2"));
-        assertEquals(1, chosen.starts().size());
-        assertEquals("rear_audio", chosen.starts().get(0).flowId);
+        Turn chosen = turn(Act.inform("choice", "2"));
+        assertEquals(1, chosen.flows().size());
+        assertEquals("rear_audio", chosen.flows().get(0).flowId);
         assertEquals(Agent.Status.RUNNING, state.focus().status());
 
-        DialogState done = complete(chosen.starts().get(0));
+        Turn done = complete(chosen.flows().get(0));
         assertEquals(1, state.tasks().size());
         assertEquals("completed", lastInform(done).slot("execution_status"));
         assertEquals("rear_audio", lastInform(done).slot("flow_id"));
@@ -108,17 +110,17 @@ public class NDialogCoreTest {
     }
 
     @Test public void directFlowRequestStartsImmediately() {
-        DialogState started = turn(flow("flow_id", "headlights"));
-        assertEquals(1, started.starts().size());
-        assertEquals("headlights", started.starts().get(0).flowId);
-        assertTrue(started.acts().isEmpty());
+        Turn started = turn(flow("flow_id", "headlights"));
+        assertEquals(1, started.flows().size());
+        assertEquals("headlights", started.flows().get(0).flowId);
+        assertTrue(started.utters().isEmpty());
         assertEquals(Agent.Status.RUNNING, state.focus().status());
 
-        complete(started.starts().get(0));
+        complete(started.flows().get(0));
         assertTrue(state.tasks().isEmpty());
 
-        DialogState stale = core.onFlowEvent(state, started.starts().get(0).agentId, new AppPort.Event("completed", null));
-        assertTrue(stale.acts().isEmpty());
+        Turn stale = core.onFlowEvent(state, started.flows().get(0).agentId, new AppPort.Event("completed", null));
+        assertTrue(stale.utters().isEmpty());
         assertTrue(state.tasks().isEmpty());
     }
 
@@ -127,32 +129,32 @@ public class NDialogCoreTest {
         assertEquals(Act.Type.CONFIRM, state.openQuestion.expected.type);
         assertEquals("headlights", state.openQuestion.expected.slot("flow_id"));
 
-        DialogState accepted = turn(Act.affirm());
-        assertEquals(1, accepted.starts().size());
-        assertEquals("headlights", accepted.starts().get(0).flowId);
+        Turn accepted = turn(Act.affirm());
+        assertEquals(1, accepted.flows().size());
+        assertEquals("headlights", accepted.flows().get(0).flowId);
     }
 
     @Test public void deniedProposalClearsTheValueAndReasks() {
         turn(flow("theme", "visibility"));
-        DialogState denied = turn(Act.deny());
-        assertTrue(denied.starts().isEmpty());
-        assertEquals(1, denied.acts().size());
-        assertEquals(Act.Type.CONFIRM, denied.acts().get(0).type);
-        assertEquals("headlights", denied.acts().get(0).slot("flow_id"));
+        Turn denied = turn(Act.deny());
+        assertTrue(denied.flows().isEmpty());
+        assertEquals(1, denied.utters().size());
+        assertEquals(Act.Type.CONFIRM, denied.utters().get(0).type);
+        assertEquals("headlights", denied.utters().get(0).slot("flow_id"));
         assertNull(((FlowAgent) state.focus()).flowId());
         assertEquals(Act.Type.CONFIRM, state.openQuestion.expected.type);
 
-        DialogState picked = turn(Act.inform("flow_id", "headlights"));
-        assertEquals(1, picked.starts().size());
-        assertEquals("headlights", picked.starts().get(0).flowId);
+        Turn picked = turn(Act.inform("flow_id", "headlights"));
+        assertEquals(1, picked.flows().size());
+        assertEquals("headlights", picked.flows().get(0).flowId);
     }
 
     @Test public void deniedGoalOfferCompletesWelcome() {
         turn(Act.greet());
         turn(Act.inform("name", "Sam"));
-        DialogState denied = turn(Act.deny());
-        assertEquals(1, denied.acts().size());
-        assertEquals("Okay. Ask me to play a flow whenever you like.", denied.acts().get(0).slot("description"));
+        Turn denied = turn(Act.deny());
+        assertEquals(1, denied.utters().size());
+        assertEquals("Okay. Ask me to play a flow whenever you like.", denied.utters().get(0).slot("description"));
         assertTrue(state.tasks().isEmpty());
         assertNull(state.openQuestion);
     }
@@ -162,14 +164,14 @@ public class NDialogCoreTest {
         turn(Act.inform("name", "Sam"));
         turn(Act.affirm());
 
-        DialogState correction = turn(Act.inform("name", "Samuel"));
-        assertTrue(correction.acts().isEmpty());
+        Turn correction = turn(Act.inform("name", "Samuel"));
+        assertTrue(correction.utters().isEmpty());
         assertEquals("Samuel", state.name());
         assertEquals(2, state.tasks().size());
         assertEquals(Act.Type.SELECT, state.openQuestion.expected.type);
 
-        DialogState chosen = turn(Act.inform("choice", "1"));
-        assertEquals("rear_displays", chosen.starts().get(0).flowId);
+        Turn chosen = turn(Act.inform("choice", "1"));
+        assertEquals("rear_displays", chosen.flows().get(0).flowId);
     }
 
     @Test public void bareAffirmUnderSelectionIsUnresolved() {
@@ -177,20 +179,20 @@ public class NDialogCoreTest {
         turn(Act.inform("name", "Sam"));
         turn(Act.affirm());
 
-        DialogState answered = turn(Act.affirm());
-        assertEquals(1, answered.acts().size());
+        Turn answered = turn(Act.affirm());
+        assertEquals(1, answered.utters().size());
         assertEquals("unresolved_input", lastInform(answered).slot("error"));
         assertEquals(Act.Type.SELECT, state.openQuestion.expected.type);
     }
 
     @Test public void retryAfterCompletionStartsAgain() {
-        DialogState first = turn(flow("flow_id", "headlights"));
-        complete(first.starts().get(0));
+        Turn first = turn(flow("flow_id", "headlights"));
+        complete(first.flows().get(0));
         assertTrue(state.tasks().isEmpty());
 
-        DialogState second = turn(flow("flow_id", "headlights"));
-        assertEquals(1, second.starts().size());
-        assertEquals("headlights", second.starts().get(0).flowId);
+        Turn second = turn(flow("flow_id", "headlights"));
+        assertEquals(1, second.flows().size());
+        assertEquals("headlights", second.flows().get(0).flowId);
     }
 
     @Test public void unsupportedInputIsAnOutcome() {
@@ -198,9 +200,9 @@ public class NDialogCoreTest {
                 Collections.singletonMap("task", Collections.singletonList("stop"))))).slot("error"));
         assertEquals("unresolved_input", lastInform(turn(Act.inform("theme", "family"))).slot("error"));
 
-        DialogState rejected = turn(flow("flow_id", "front_comfort", "theme", "visibility"));
+        Turn rejected = turn(flow("flow_id", "front_comfort", "theme", "visibility"));
         assertEquals("conflicting_values", lastInform(rejected).slot("error"));
-        assertTrue(rejected.starts().isEmpty());
+        assertTrue(rejected.flows().isEmpty());
         assertTrue(state.tasks().isEmpty());
     }
 }

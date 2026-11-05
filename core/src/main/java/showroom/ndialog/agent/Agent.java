@@ -2,7 +2,6 @@ package showroom.ndialog.agent;
 
 import showroom.ndialog.dialogue.Act;
 import showroom.ndialog.dialogue.DialogState;
-import showroom.ndialog.dialogue.OpenQuestion;
 
 import java.util.UUID;
 

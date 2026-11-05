@@ -5,34 +5,34 @@ import showroom.ndialog.agent.Agent;
 import java.util.List;
 
 /**
- * Bookkeeping for the one open question: its owner and the expected act. Translates
- * an answer into an act the ordinary routing can bind, or null when the incoming
- * act is not this question's answer. A deny translates into a clear; affirming a
- * goal offer translates into a goal request.
+ * Bookkeeping for the question awaiting an answer: its owner and the expected
+ * act. Translates an answer into an act the ordinary routing can bind, or null
+ * when the incoming act is not this question's answer. A deny translates into
+ * a clear; affirming a goal offer translates into a goal request.
  */
-public final class OpenQuestion {
+public final class Question {
     final String ownerId;
     final Act expected;
 
-    private OpenQuestion(Agent owner, Act expected) {
+    private Question(Agent owner, Act expected) {
         this.ownerId = owner.id();
         this.expected = expected;
     }
 
-    public static OpenQuestion requestValue(Agent owner, String slot) {
-        return new OpenQuestion(owner, Act.request(slot));
+    public static Question requestValue(Agent owner, String slot) {
+        return new Question(owner, Act.request(slot));
     }
 
-    public static OpenQuestion selectValue(Agent owner, String slot, List<String> choices) {
-        return new OpenQuestion(owner, Act.select(slot, choices));
+    public static Question selectValue(Agent owner, String slot, List<String> choices) {
+        return new Question(owner, Act.select(slot, choices));
     }
 
-    public static OpenQuestion confirmValue(Agent owner, String slot, String value) {
-        return new OpenQuestion(owner, Act.confirm(slot, value));
+    public static Question confirmValue(Agent owner, String slot, String value) {
+        return new Question(owner, Act.confirm(slot, value));
     }
 
-    public static OpenQuestion confirmGoal(Agent owner, String task) {
-        return new OpenQuestion(owner, Act.confirmGoal(task));
+    public static Question confirmGoal(Agent owner, String task) {
+        return new Question(owner, Act.confirmGoal(task));
     }
 
     boolean ownedBy(Agent agent) { return agent != null && ownerId.equals(agent.id()); }
@@ -49,6 +49,7 @@ public final class OpenQuestion {
 
     private Act translateRequest(Act incoming) {
         String asked = expected.soleSlot();
+        // is slots.size() == 1 too restrictive
         if (incoming.type == Act.Type.INFORM && incoming.slots.size() == 1 && incoming.has(asked)) {
             return incoming;
         }

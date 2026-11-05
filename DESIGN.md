@@ -18,7 +18,7 @@ handleInput(state, acts):
         cleanup()                      # remove finished agents (idle -> running -> done/failed)
         push pending                   # spawned agents enter; the moved focus clears the question
         onFocus()                      # the focus takes initiative when nothing is open
-    return working                     # state carries this call's acts and starts
+    return Turn(working, drain())      # the turn carries the state and this call's output
 ```
 
 ## The pieces
@@ -29,9 +29,10 @@ handleInput(state, acts):
   question family uses cardinality as meaning — `request(flow_id=[])` asks,
   `confirm(flow_id=[X])` proposes, `select(flow_id=[A,B,C])` offers.
 - **`DialogState`** — the single shared object: agent stack (top is focus), the
-  one `openQuestion`, session `name`, and the current turn's `acts` and `start`
-  requests. `ask()` stores and speaks a question in one step; `copy()` snapshots
-  without the previous turn's output.
+  one `openQuestion`, session `name`, and the turn's output buffer. `ask()`
+  stores and speaks a question in one step; the working copy is the turn's
+  scratchpad — the engine drains it into a `Turn` at the boundary, and `copy()`
+  starts with fresh output.
 - **`Agent`** — a conversational goal. Subclasses own their fields and override
   `bind` / `execute` / `onFocus` / `onBind`. `bind` returns `NOT_MINE` (walk
   continues), `BOUND` (values applied — a null value clears), or `REJECTED`
@@ -39,7 +40,7 @@ handleInput(state, acts):
   successful bind without stack side effects beyond own status; `onFocus`
   decides what a cleared or updated value means — including starting execution
   when a freshly spawned agent is ready.
-- **`OpenQuestion`** — pure bookkeeping: the owner plus the expected act.
+- **`Question`** — pure bookkeeping: the owner plus the expected act.
   `translate` returns the bindable act or null (a Rust Option, no wrapper):
   `confirm(flow_id=[X])` + `affirm` becomes `inform(flow_id=X)`; 
   `select(flow_id=[A,B])` + `inform(choice=2)` becomes `inform(flow_id=B)`;
@@ -71,15 +72,15 @@ handleInput(state, acts):
 ## Deviations from the sketch, deliberately
 
 - `execute()` requests a start through the state instead of calling the app
-  directly: the host dispatches starts after accepting the returned state, so
-  a synchronous application cannot mutate mid-turn state.
+  directly: the host dispatches flow starts after accepting the returned turn,
+  so a synchronous application cannot mutate mid-turn state.
 - Welcome does not complete when Flow spawns; it stays below on the stack so
   name corrections walk back to it. It completes when its goal offer is
   declined — modeled as binding `task` back to unset, not a rejection hook.
 - Finished agents are removed, so a retry after completion spawns a fresh
   agent; parameters from the previous run are not retained.
 - The interpreter receives no dialogue context in this slice (`read(raw,
-  openQuestion)` is future work); the question bookkeeping resolves form on
+  question)` is future work); the question bookkeeping resolves form on
   the engine side instead.
 
 ## Not in this slice

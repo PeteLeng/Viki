@@ -35,8 +35,8 @@ public final class NDialogCore {
         this.catalog = Feature.immutable(catalog);
     }
 
-    /** Acts are nonempty and validated upstream. Returns the next state; its acts and starts are this call's output. */
-    public DialogState handleInput(DialogState before, List<Act> acts) {
+    /** Acts are nonempty and validated upstream. Returns the turn; its outputs are this call's result. */
+    public Turn handleInput(DialogState before, List<Act> acts) {
         DialogState state = before.copy();
         for (Act act : acts) {
             if (act.type == Act.Type.REQUEST && GLOBAL_TASKS.contains(act.slot("task"))) {
@@ -46,7 +46,7 @@ public final class NDialogCore {
 
             // Bind: the open question translates an answer; the stack walks nearest first;
             // a goal act nobody consumes spawns a new agent into the pending list.
-            OpenQuestion question = state.openQuestion;
+            Question question = state.openQuestion;
             if (question != null) {
                 Act translated = question.translate(act);
                 if (translated != null) {
@@ -77,13 +77,13 @@ public final class NDialogCore {
             focus = state.focus();
             if (focus != null && state.openQuestion == null) focus.onFocus(state);
         }
-        return state;
+        return new Turn(state, state.drain());
     }
 
     /** A goal act nobody on the stack consumes becomes a new pending agent. */
     private void spawn(DialogState state, Act act, List<Agent> pending) {
         if (act.type == Act.Type.GREET) {
-            state.say(Act.greet());
+            state.utter(Act.greet());
             if (state.stack.isEmpty()) {
                 WelcomeAgent candidate = new WelcomeAgent();
                 pending.add(candidate);
@@ -106,14 +106,14 @@ public final class NDialogCore {
         for (int i = state.stack.size() - 1; i >= 0; i--) {
             Agent agent = state.stack.get(i);
             if (agent.finished()) {
-                state.clearQuestion(agent);
+                state.dropQuestion(agent);
                 state.stack.remove(i);
             }
         }
     }
 
     /** Application notifications update a running agent's status; they never rerun input policy. */
-    public DialogState onFlowEvent(DialogState before, String agentId, AppPort.Event event) {
+    public Turn onFlowEvent(DialogState before, String agentId, AppPort.Event event) {
         DialogState working = before.copy();
         Agent owner = working.find(agentId);
         if (owner != null && owner.running()) {
@@ -125,10 +125,10 @@ public final class NDialogCore {
                 slots.put("execution_status", event.kind);
             }
             if (event.text != null && !event.text.trim().isEmpty()) slots.put("description", event.text);
-            if (!slots.isEmpty()) working.say(Act.inform(slots));
+            if (!slots.isEmpty()) working.utter(Act.inform(slots));
         }
         cleanup(working);
-        return working;
+        return new Turn(working, working.drain());
     }
 
     private String flowIdOf(Agent owner) {

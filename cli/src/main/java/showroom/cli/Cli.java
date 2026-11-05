@@ -10,6 +10,7 @@ import showroom.ndialog.bridge.Feature;
 import showroom.ndialog.dialogue.Act;
 import showroom.ndialog.dialogue.DialogState;
 import showroom.ndialog.dialogue.NDialogCore;
+import showroom.ndialog.dialogue.Turn;
 
 public final class Cli {
     private final Nlu nlu;
@@ -48,19 +49,24 @@ public final class Cli {
         }
     }
 
-    private void accept(DialogState after) {
-        state = after;
-        for (Act act : state.acts()) render(act);
-        for (DialogState.Start start : state.starts()) {
-            out.println("Requesting flow: " + start.flowId);
-            app.start(start.flowId, event -> onEvent(start, event));
+    private void accept(Turn turn) {
+        state = turn.state();
+        for (Turn.Output output : turn.outputs()) {
+            if (output.isUtter()) render(output.act);
+            else launch(output);
         }
     }
 
-    private void onEvent(DialogState.Start start, AppPort.Event event) {
-        state = core.onFlowEvent(state, start.agentId, event);
-        out.println("flow: " + event.kind + " " + start.flowId);
-        for (Act act : state.acts()) render(act);
+    private void launch(Turn.Output flow) {
+        out.println("Requesting flow: " + flow.flowId);
+        app.start(flow.flowId, event -> onEvent(flow, event));
+    }
+
+    private void onEvent(Turn.Output flow, AppPort.Event event) {
+        Turn turn = core.onFlowEvent(state, flow.agentId, event);
+        state = turn.state();
+        out.println("flow: " + event.kind + " " + flow.flowId);
+        for (Act act : turn.utters()) render(act);
     }
 
     private void render(Act act) {
